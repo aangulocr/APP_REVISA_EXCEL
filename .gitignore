@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Archivos de Excel temporales
+~$*.xlsx
+
+# Carpetas de datos (trabajos y revisados)
+TRABAJOS_ESTUDIANTES/
+REVISADOS/
+
+# Archivos de plantilla
+PLANTILLA.xlsx
+PLANTILLA-ORIG.xlsx
+
+# Logs generados
+*.log
+LOG_NOTAS.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
