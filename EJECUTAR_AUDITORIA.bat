@@ -18,6 +18,31 @@ if %errorlevel% neq 0 (
     echo.
     pause
     exit /b 1
+echo.
+
+:: Configurar entorno virtual si no existe
+set VENV_DIR=.venv
+if not exist "%VENV_DIR%\Scripts\python.exe" (
+    echo Creando entorno virtual en %VENV_DIR%...
+    python -m venv %VENV_DIR%
+)
+
+:: Activar entorno virtual y verificar pip
+call %VENV_DIR%\Scripts\activate.bat
+
+:: Asegurar que pip este disponible
+python -m pip --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Instalando pip en el entorno virtual...
+    powershell -Command "Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -OutFile get-pip.py"
+    python get-pip.py --quiet
+    del get-pip.py
+)
+
+:: Instalar dependencias si existe requirements.txt
+if exist "requirements.txt" (
+    echo Verificando/instalando dependencias...
+    python -m pip install -q -r requirements.txt
 )
 
 :: Verificar que main.py exista
@@ -34,6 +59,7 @@ echo Iniciando auditoria...
 echo.
 
 python main.py
+
 
 echo.
 echo ==========================================================
