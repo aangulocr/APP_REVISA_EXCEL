@@ -216,12 +216,7 @@ def _comparar_bordes(borde_plantilla, borde_estudiante):
 def comparar_celda(celda_plantilla, celda_estudiante, ws_plantilla_data=None):
     """
     Compara una celda de la plantilla con su homóloga del estudiante.
-
-    Parámetros:
-        celda_plantilla: Celda de la hoja de la plantilla (data_only=False).
-        celda_estudiante: Celda de la hoja del estudiante (data_only=False).
-        ws_plantilla_data: Hoja de la plantilla abierta con data_only=True
-                           para obtener valores calculados.
+    MODO: Solo fórmulas (ignora formato y valores constantes).
 
     Retorna:
         tuple: (es_correcto: bool, lista_errores: list[str])
@@ -229,21 +224,24 @@ def comparar_celda(celda_plantilla, celda_estudiante, ws_plantilla_data=None):
     errores = []
 
     # ----------------------------------------------------------------
-    # 1. COMPARACIÓN DE FÓRMULAS Y VALORES
+    # 1. COMPARACIÓN EXCLUSIVA DE FÓRMULAS
     # ----------------------------------------------------------------
     valor_p = celda_plantilla.value
     valor_e = celda_estudiante.value
 
-    # Verificar si la celda de la plantilla contiene una fórmula
+    # Solo auditamos si la PLANTILLA tiene una fórmula.
+    # Si la plantilla tiene un valor constante, ignoramos la celda.
     es_formula_p = isinstance(valor_p, str) and valor_p.startswith("=")
-    es_formula_e = isinstance(valor_e, str) and valor_e.startswith("=")
-
+    
     if es_formula_p:
+        es_formula_e = isinstance(valor_e, str) and valor_e.startswith("=")
+        
         # Comparar la fórmula normalizada (sin _xlfn., @, etc.)
         formula_p_raw = valor_p.strip()
         formula_e_raw = valor_e.strip() if es_formula_e else str(valor_e) if valor_e is not None else ""
         formula_p_norm = _normalizar_formula(formula_p_raw)
         formula_e_norm = _normalizar_formula(formula_e_raw)
+        
         if formula_p_norm != formula_e_norm:
             errores.append(
                 MENSAJES["formula"].format(
@@ -251,6 +249,7 @@ def comparar_celda(celda_plantilla, celda_estudiante, ws_plantilla_data=None):
                     encontrado=formula_e_raw or "(vacío)"
                 )
             )
+        
         # Comparar funciones utilizadas
         func_p = _extraer_funciones(formula_p_raw)
         func_e = _extraer_funciones(formula_e_raw)
@@ -262,138 +261,8 @@ def comparar_celda(celda_plantilla, celda_estudiante, ws_plantilla_data=None):
                 )
             )
     else:
-        # Comparar valores resultantes
-        val_p_norm = _normalizar_valor(valor_p)
-        val_e_norm = _normalizar_valor(valor_e)
-        if val_p_norm != val_e_norm:
-            errores.append(
-                MENSAJES["valor"].format(
-                    esperado=val_p_norm if val_p_norm is not None else "(vacío)",
-                    encontrado=val_e_norm if val_e_norm is not None else "(vacío)"
-                )
-            )
-
-    # ----------------------------------------------------------------
-    # 2. COMPARACIÓN DE FORMATO DE FUENTE
-    # ----------------------------------------------------------------
-    fuente_p = celda_plantilla.font
-    fuente_e = celda_estudiante.font
-
-    # Color de fuente
-    color_fuente_p = _obtener_color_rgb(fuente_p.color) if fuente_p.color else "Sin color"
-    color_fuente_e = _obtener_color_rgb(fuente_e.color) if fuente_e.color else "Sin color"
-    if color_fuente_p != color_fuente_e:
-        errores.append(
-            MENSAJES["color_fuente"].format(
-                esperado=color_fuente_p,
-                encontrado=color_fuente_e
-            )
-        )
-
-    # Nombre de fuente
-    if fuente_p.name != fuente_e.name:
-        errores.append(
-            MENSAJES["fuente_nombre"].format(
-                esperado=fuente_p.name or "predeterminado",
-                encontrado=fuente_e.name or "predeterminado"
-            )
-        )
-
-    # Tamaño de fuente
-    if fuente_p.size != fuente_e.size:
-        errores.append(
-            MENSAJES["fuente_tamano"].format(
-                esperado=fuente_p.size,
-                encontrado=fuente_e.size
-            )
-        )
-
-    # Negrita
-    if bool(fuente_p.bold) != bool(fuente_e.bold):
-        errores.append(
-            MENSAJES["fuente_negrita"].format(
-                esperado="Sí" if fuente_p.bold else "No",
-                encontrado="Sí" if fuente_e.bold else "No"
-            )
-        )
-
-    # Cursiva
-    if bool(fuente_p.italic) != bool(fuente_e.italic):
-        errores.append(
-            MENSAJES["fuente_cursiva"].format(
-                esperado="Sí" if fuente_p.italic else "No",
-                encontrado="Sí" if fuente_e.italic else "No"
-            )
-        )
-
-    # Subrayado
-    if fuente_p.underline != fuente_e.underline:
-        errores.append(
-            MENSAJES["fuente_subrayado"].format(
-                esperado=fuente_p.underline or "ninguno",
-                encontrado=fuente_e.underline or "ninguno"
-            )
-        )
-
-    # ----------------------------------------------------------------
-    # 3. COMPARACIÓN DE COLOR DE RELLENO
-    # ----------------------------------------------------------------
-    relleno_p = _obtener_color_relleno(celda_plantilla.fill)
-    relleno_e = _obtener_color_relleno(celda_estudiante.fill)
-    if relleno_p != relleno_e:
-        errores.append(
-            MENSAJES["color_relleno"].format(
-                esperado=relleno_p,
-                encontrado=relleno_e
-            )
-        )
-
-    # ----------------------------------------------------------------
-    # 4. COMPARACIÓN DE BORDES
-    # ----------------------------------------------------------------
-    errores_bordes = _comparar_bordes(celda_plantilla.border, celda_estudiante.border)
-    errores.extend(errores_bordes)
-
-    # ----------------------------------------------------------------
-    # 5. COMPARACIÓN DE ALINEACIÓN
-    # ----------------------------------------------------------------
-    alin_p = celda_plantilla.alignment
-    alin_e = celda_estudiante.alignment
-
-    if alin_p.horizontal != alin_e.horizontal:
-        errores.append(
-            MENSAJES["alineacion_h"].format(
-                esperado=alin_p.horizontal or "general",
-                encontrado=alin_e.horizontal or "general"
-            )
-        )
-
-    if alin_p.vertical != alin_e.vertical:
-        errores.append(
-            MENSAJES["alineacion_v"].format(
-                esperado=alin_p.vertical or "bottom",
-                encontrado=alin_e.vertical or "bottom"
-            )
-        )
-
-    if bool(alin_p.wrap_text) != bool(alin_e.wrap_text):
-        errores.append(
-            MENSAJES["wrap_text"].format(
-                esperado="Sí" if alin_p.wrap_text else "No",
-                encontrado="Sí" if alin_e.wrap_text else "No"
-            )
-        )
-
-    # ----------------------------------------------------------------
-    # 6. COMPARACIÓN DE FORMATO NUMÉRICO
-    # ----------------------------------------------------------------
-    if celda_plantilla.number_format != celda_estudiante.number_format:
-        errores.append(
-            MENSAJES["numero_formato"].format(
-                esperado=celda_plantilla.number_format or "General",
-                encontrado=celda_estudiante.number_format or "General"
-            )
-        )
+        # Si no es fórmula, la damos por correcta automáticamente (no resta puntos)
+        return True, []
 
     # ----------------------------------------------------------------
     # RESULTADO

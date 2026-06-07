@@ -147,14 +147,14 @@ def auditar_hoja(ws_plantilla, ws_estudiante, nombre_hoja):
         detalles_objetos.append(f"⚠️ Error comparando formato condicional: {e}")
 
     # ----------------------------------------------------------------
-    # 6. COMPARACIÓN DE DIMENSIONES
+    # 6. COMPARACIÓN DE DIMENSIONES (Deshabilitado por solicitud del usuario)
     # ----------------------------------------------------------------
-    try:
-        err_dim, det_dim = comparar_dimensiones(ws_plantilla, ws_estudiante)
-        errores += err_dim
-        detalles_objetos.extend(det_dim)
-    except Exception as e:
-        detalles_objetos.append(f"⚠️ Error comparando dimensiones: {e}")
+    # try:
+    #     err_dim, det_dim = comparar_dimensiones(ws_plantilla, ws_estudiante)
+    #     errores += err_dim
+    #     detalles_objetos.extend(det_dim)
+    # except Exception as e:
+    #     detalles_objetos.append(f"⚠️ Error comparando dimensiones: {e}")
 
     # ----------------------------------------------------------------
     # 7. COMPARACIÓN DE GRÁFICOS (openpyxl)
