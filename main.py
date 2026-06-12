@@ -109,16 +109,6 @@ def validar_rutas(ruta_plantilla, ruta_trabajos):
 # ============================================================================
 # GENERACIÓN DEL LOG CSV
 # ============================================================================
-def calcular_nivel(porcentaje):
-    """Calcula el nivel alcanzado (0-3) a partir del porcentaje de aciertos."""
-    if porcentaje == 0:
-        return 0
-    elif porcentaje <= 33.0:
-        return 1
-    elif porcentaje < 66.0:
-        return 2
-    else:
-        return 3
 
 
 def obtener_configuracion_csv():
@@ -199,8 +189,7 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
             encabezados.extend([
                 f"Aciertos {hoja}",
                 f"Errores {hoja}",
-                f"Porcentaje {hoja} (%)",
-                f"Nivel {hoja}"
+                f"Porcentaje {hoja} (%)"
             ])
             
         encabezados.extend([
@@ -208,7 +197,6 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
             "Errores Total",
             "Total Evaluaciones",
             "Porcentaje Total (%)",
-            "Nivel Total",
             "Errores en Objetos/COM"
         ])
         
@@ -243,13 +231,11 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
 
                 tot_hoja = ac_hoja + er_hoja
                 pct_hoja = (ac_hoja / tot_hoja * 100) if tot_hoja > 0 else 0
-                niv_hoja = calcular_nivel(pct_hoja)
 
                 fila.extend([
                     ac_hoja,
                     er_hoja,
-                    formatear_pct(pct_hoja),
-                    niv_hoja
+                    formatear_pct(pct_hoja)
                 ])
 
             # Procesar totales del libro
@@ -257,7 +243,6 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
             errores_tot = res["total_errores"]
             total_tot = aciertos_tot + errores_tot if errores_tot >= 0 else 0
             pct_tot = (aciertos_tot / total_tot * 100) if total_tot > 0 else 0
-            nivel_tot = calcular_nivel(pct_tot)
 
             # Contar errores de objetos y COM
             errores_objetos = sum(
@@ -271,7 +256,6 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
                 errores_tot if errores_tot >= 0 else 0,
                 total_tot,
                 formatear_pct(pct_tot),
-                nivel_tot,
                 errores_objetos + errores_com
             ])
 
