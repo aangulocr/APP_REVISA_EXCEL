@@ -109,59 +109,141 @@ def validar_rutas(ruta_plantilla, ruta_trabajos):
 # ============================================================================
 # GENERACIÓN DEL LOG CSV
 # ============================================================================
-def generar_log_csv(resultados, ruta_csv):
-    """
-    Genera el archivo LOG_NOTAS.csv con el resumen de la auditoría.
+def calcular_nivel(porcentaje):
+    """Calcula el nivel alcanzado (0-3) a partir del porcentaje de aciertos."""
+    if porcentaje == 0:
+        return 0
+    elif porcentaje <= 33.0:
+        return 1
+    elif porcentaje < 66.0:
+        return 2
+    else:
+        return 3
 
-    Columnas:
-        - Nombre del Estudiante (sin extensión)
-        - Cantidad de Aciertos
-        - Cantidad de Errores
-        - Porcentaje de Aciertos
-        - Hojas Analizadas
-        - Detalles de Objetos (resumen)
+
+def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
     """
+    Genera el archivo LOG_NOTAS.csv con el resumen detallado de la auditoría.
+    
+    Incluye ID_Estudiante, ID_Seccion, Fecha y detalle de aciertos, errores,
+    porcentaje y nivel de evaluación (0 a 3) por cada hoja del libro y en el total.
+    """
+    import openpyxl
+    
+    # Obtener los nombres de las hojas de la plantilla para crear las columnas
+    try:
+        wb_p = openpyxl.load_workbook(ruta_plantilla, read_only=True)
+        hojas_plantilla = wb_p.sheetnames
+        wb_p.close()
+    except Exception as e:
+        logging.error(f"❌ Error al leer las hojas de la plantilla: {e}")
+        hojas_plantilla = []
+
+    # Extraer ID_Seccion del nombre del directorio de trabajos
+    id_seccion = os.path.basename(os.path.abspath(ruta_trabajos))
+    if not id_seccion:
+        id_seccion = "SEC_DEFAULT"
+
     with open(ruta_csv, mode="w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f, delimiter=";")
 
-        # Encabezados
-        writer.writerow([
-            "Nombre del Estudiante",
-            "Cantidad de Aciertos",
-            "Cantidad de Errores",
+        # Construir encabezados dinámicamente
+        encabezados = [
+            "Fecha",
+            "ID_Seccion",
+            "ID_Estudiante",
+            "Nombre del Estudiante"
+        ]
+        
+        for hoja in hojas_plantilla:
+            encabezados.extend([
+                f"Aciertos {hoja}",
+                f"Errores {hoja}",
+                f"Porcentaje {hoja} (%)",
+                f"Nivel {hoja}"
+            ])
+            
+        encabezados.extend([
+            "Aciertos Total",
+            "Errores Total",
             "Total Evaluaciones",
-            "Porcentaje de Aciertos (%)",
-            "Hojas Analizadas",
+            "Porcentaje Total (%)",
+            "Nivel Total",
             "Errores en Objetos/COM"
         ])
+        
+        writer.writerow(encabezados)
+
+        fecha_actual = datetime.now().strftime("%d/%m/%Y")
 
         for res in resultados:
-            nombre = os.path.splitext(res["archivo"])[0]
-            aciertos = res["total_aciertos"]
-            errores_val = res["total_errores"]
-            total = aciertos + errores_val if errores_val >= 0 else 0
-            porcentaje = (aciertos / total * 100) if total > 0 else 0
+            id_estudiante = os.path.splitext(res["archivo"])[0]
+            
+            # Limpiar nombre del estudiante para mayor legibilidad
+            nombre_estudiante = id_estudiante
+            if " - " in id_estudiante:
+                nombre_estudiante = id_estudiante.split(" - ")[-1].strip()
+            elif "-" in id_estudiante:
+                nombre_estudiante = id_estudiante.split("-")[-1].strip()
 
-            # Contar errores de objetos
+            fila = [
+                fecha_actual,
+                id_seccion,
+                id_estudiante,
+                nombre_estudiante
+            ]
+
+            # Procesar detalle por cada hoja
+            for hoja in hojas_plantilla:
+                detalle_hoja = None
+                for h in res.get("detalle_hojas", []):
+                    if h["hoja"] == hoja:
+                        detalle_hoja = h
+                        break
+
+                if detalle_hoja is not None:
+                    ac_hoja = detalle_hoja["aciertos"]
+                    er_hoja = detalle_hoja["errores"]
+                else:
+                    ac_hoja = 0
+                    # Si no hay detalle y no fue error de apertura, se marca como 1 error (hoja faltante)
+                    er_hoja = 1 if res["total_errores"] != -1 else 0
+
+                tot_hoja = ac_hoja + er_hoja
+                pct_hoja = (ac_hoja / tot_hoja * 100) if tot_hoja > 0 else 0
+                niv_hoja = calcular_nivel(pct_hoja)
+
+                fila.extend([
+                    ac_hoja,
+                    er_hoja,
+                    f"{pct_hoja:.1f}",
+                    niv_hoja
+                ])
+
+            # Procesar totales del libro
+            aciertos_tot = res["total_aciertos"]
+            errores_tot = res["total_errores"]
+            total_tot = aciertos_tot + errores_tot if errores_tot >= 0 else 0
+            pct_tot = (aciertos_tot / total_tot * 100) if total_tot > 0 else 0
+            nivel_tot = calcular_nivel(pct_tot)
+
+            # Contar errores de objetos y COM
             errores_objetos = sum(
                 len(h.get("detalles_objetos", []))
                 for h in res.get("detalle_hojas", [])
             )
             errores_com = len(res.get("detalles_com", []))
 
-            hojas = ", ".join(
-                h["hoja"] for h in res.get("detalle_hojas", [])
-            )
-
-            writer.writerow([
-                nombre,
-                aciertos,
-                errores_val,
-                total,
-                f"{porcentaje:.1f}",
-                hojas,
+            fila.extend([
+                aciertos_tot,
+                errores_tot if errores_tot >= 0 else 0,
+                total_tot,
+                f"{pct_tot:.1f}",
+                nivel_tot,
                 errores_objetos + errores_com
             ])
+
+            writer.writerow(fila)
 
     logging.info(f"\n📊 LOG_NOTAS.csv generado en: {ruta_csv}")
 
@@ -171,6 +253,13 @@ def generar_log_csv(resultados, ruta_csv):
 # ============================================================================
 def main():
     """Punto de entrada principal del script de auditoría."""
+    # Evitar crasheos de encoding por emojis unicode en consolas Windows
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
+
     logger = configurar_logging()
 
     # Parsear argumentos opcionales
@@ -251,7 +340,7 @@ def main():
     # ----------------------------------------------------------------
     # GENERAR LOG CSV
     # ----------------------------------------------------------------
-    generar_log_csv(resultados, args.log)
+    generar_log_csv(resultados, args.log, args.plantilla, args.trabajos)
 
     # ----------------------------------------------------------------
     # RESUMEN FINAL
