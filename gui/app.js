@@ -11,12 +11,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnBrowseFile = document.getElementById("btn-browse-file");
     const btnBrowseFolder = document.getElementById("btn-browse-folder");
     const btnRun = document.getElementById("btn-run");
+    const btnStop = document.getElementById("btn-stop");
+    const btnExit = document.getElementById("btn-exit");
     const consoleArea = document.getElementById("console-area");
     const consoleLog = document.getElementById("console-log");
     const btnClearConsole = document.getElementById("btn-clear-console");
 
     let selectedOS = "windows";
     let isRunning = false;
+    let eventSource = null;
 
     // 1. Cargar Rutas por Defecto al Iniciar
     fetch("/api/defaults")
@@ -118,7 +121,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // Preparar UI para ejecución
         isRunning = true;
         btnRun.disabled = true;
-        btnRun.innerHTML = `<span class="run-icon">⏳</span> Ejecutando Auditoría...`;
+        btnRun.innerHTML = `<span class="run-icon">⏳</span> Ejecutando...`;
+        btnStop.style.display = "flex";
         consoleArea.style.display = "block";
         consoleLog.innerHTML = ""; // Limpiar consola
         appendLog(`Iniciando auditoría en segundo plano (OS: ${selectedOS})...`, "system");
@@ -128,6 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnBrowseFolder.disabled = true;
         btnWin.disabled = true;
         btnLin.disabled = true;
+        btnExit.disabled = true;
 
         // Crear la URL con los parámetros correspondientes
         const params = new URLSearchParams({
@@ -137,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         // Conectar al endpoint SSE de ejecución
-        const eventSource = new EventSource(`/api/run-audit?${params.toString()}`);
+        eventSource = new EventSource(`/api/run-audit?${params.toString()}`);
 
         eventSource.onmessage = (event) => {
             try {
@@ -181,6 +186,59 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     });
 
+    // 7. Botón Cancelar/Detener Auditoría
+    btnStop.addEventListener("click", () => {
+        if (!isRunning || !eventSource) return;
+        
+        appendLog("\n⌛ Deteniendo auditoría...", "warning");
+        btnStop.disabled = true;
+        btnStop.textContent = "Deteniendo...";
+        
+        // Cerrar flujo SSE del lado del cliente
+        eventSource.close();
+        
+        // Solicitar al backend detener el subproceso
+        fetch("/api/abort")
+            .then(res => res.json())
+            .then(data => {
+                appendLog("✅ Auditoría detenida correctamente por el usuario.", "system");
+            })
+            .catch(err => {
+                console.error("Error al abortar auditoría:", err);
+                appendLog("⚠️ El servidor no respondió a la cancelación, pero la conexión local se cerró.", "warning");
+            })
+            .finally(() => {
+                btnStop.disabled = false;
+                btnStop.innerHTML = "<span>■</span> Cancelar";
+                finishExecution();
+            });
+    });
+
+    // 8. Botón Apagar Servidor y Salir
+    btnExit.addEventListener("click", () => {
+        if (isRunning) return;
+
+        if (confirm("¿Estás seguro de que deseas cerrar la aplicación?\nEsto apagará el servidor y cerrará la ventana de CMD de inmediato.")) {
+            // Reemplazar cuerpo con pantalla elegante de apagado
+            document.body.innerHTML = `
+                <div class="mesh-background"></div>
+                <div class="app-container" style="text-align: center; max-width: 500px; padding: 40px 20px; margin: auto; height: 100vh; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 24px; padding: 40px; backdrop-filter: blur(16px); width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+                        <div style="font-size: 3.5rem; margin-bottom: 20px; filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.4));">🔌</div>
+                        <h1 style="font-size: 1.8rem; margin-bottom: 15px; font-weight: 700; color: #ffffff;">Aplicación Cerrada</h1>
+                        <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 25px;">El servidor local ha sido desconectado. La ventana de la consola (CMD) se cerrará automáticamente.</p>
+                        <p style="color: #64748b; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">Ya puedes cerrar esta pestaña del navegador de forma segura.</p>
+                    </div>
+                </div>
+            `;
+            
+            // Notificar al backend para apagar
+            fetch("/api/shutdown").catch(err => {
+                console.log("Conexión con el servidor cerrada por apagado.");
+            });
+        }
+    });
+
     // Función auxiliar para añadir logs a la consola
     function appendLog(text, type = "info") {
         const line = document.createElement("div");
@@ -197,10 +255,13 @@ document.addEventListener("DOMContentLoaded", () => {
         isRunning = false;
         btnRun.disabled = false;
         btnRun.innerHTML = `<span class="run-icon">▶</span> Ejecutar Auditoría`;
+        btnStop.style.display = "none";
         
         btnBrowseFile.disabled = false;
         btnBrowseFolder.disabled = false;
         btnWin.disabled = false;
         btnLin.disabled = false;
+        btnExit.disabled = false;
+        eventSource = null;
     }
 });

@@ -25,6 +25,10 @@ DEFAULT_TRABAJOS = os.path.abspath(os.path.join(BASE_DIR, "TRABAJOS_ESTUDIANTES"
 
 PORT = 5000
 
+# Variables globales para control del subproceso y la instancia del servidor
+proceso_activo = None
+server_instance = None
+
 
 # ============================================================================
 # DIÁLOGOS DE SELECCIÓN NATIVER DE FICHEROS (AISLADOS EN SUBPROCESOS)
@@ -101,6 +105,10 @@ class GUIHandler(BaseHTTPRequestHandler):
             self.enviar_json({"path": ruta_carpeta})
         elif path == "/api/run-audit":
             self.ejecutar_auditoria_sse(query)
+        elif path == "/api/abort":
+            self.abortar_auditoria()
+        elif path == "/api/shutdown":
+            self.apagar_servidor()
         else:
             self.send_error(404, "Recurso no encontrado")
 
@@ -167,9 +175,9 @@ class GUIHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         # Iniciar subproceso de auditoría redireccionando salida estándar y errores
-        proceso = None
+        global proceso_activo
         try:
-            proceso = subprocess.Popen(
+            proceso_activo = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -180,21 +188,24 @@ class GUIHandler(BaseHTTPRequestHandler):
             )
             
             # Leer la salida del subproceso línea por línea y enviarla al cliente
-            for linea in proceso.stdout:
+            for linea in proceso_activo.stdout:
                 data = json.dumps({"text": linea.rstrip()})
                 self.wfile.write(f"data: {data}\n\n".encode('utf-8'))
                 self.wfile.flush()
 
-            proceso.wait()
-            codigo_salida = proceso.returncode
+            proceso_activo.wait()
+            codigo_salida = proceso_activo.returncode
             data = json.dumps({"status": "done", "code": codigo_salida})
             self.wfile.write(f"data: {data}\n\n".encode('utf-8'))
             self.wfile.flush()
 
         except (ConnectionError, BrokenPipeError):
             print("⚠️ Cliente desconectado. Finalizando subproceso de auditoría.")
-            if proceso:
-                proceso.terminate()
+            if proceso_activo:
+                try:
+                    proceso_activo.terminate()
+                except Exception:
+                    pass
         except Exception as e:
             err_msg = json.dumps({"status": "error", "message": str(e)})
             try:
@@ -202,15 +213,52 @@ class GUIHandler(BaseHTTPRequestHandler):
                 self.wfile.flush()
             except Exception:
                 pass
+        finally:
+            proceso_activo = None
+
+    def abortar_auditoria(self):
+        """Detiene de forma forzada el subproceso de auditoría activo."""
+        global proceso_activo
+        if proceso_activo:
+            try:
+                proceso_activo.terminate()
+                print("Proceso de auditoría detenido por solicitud del usuario.")
+            except Exception as e:
+                print(f"Error al detener el proceso: {e}")
+            proceso_activo = None
+        self.enviar_json({"status": "aborted", "message": "Auditoría detenida con éxito."})
+
+    def apagar_servidor(self):
+        """Apaga el servidor HTTP y cierra la ventana de CMD del sistema."""
+        global proceso_activo
+        if proceso_activo:
+            try:
+                proceso_activo.terminate()
+            except Exception:
+                pass
+            proceso_activo = None
+            
+        self.enviar_json({"status": "shutdown", "message": "Servidor apagado. Cerrando ventana..."})
+        
+        def apagar_y_salir():
+            import time
+            time.sleep(0.5)
+            global server_instance
+            if server_instance:
+                server_instance.shutdown()
+            os._exit(0)
+
+        threading.Thread(target=apagar_y_salir).start()
 
 
 # ============================================================================
 # FUNCIÓN DE INICIO Y BINDING DEL SERVIDOR
 # ============================================================================
 def iniciar_servidor():
+    global server_instance
     # Enlazar en 0.0.0.0 para que sea accesible desde otros dispositivos en la red local
     server_address = ('0.0.0.0', PORT)
-    httpd = HTTPServer(server_address, GUIHandler)
+    server_instance = HTTPServer(server_address, GUIHandler)
     
     print("======================================================================")
     print("  SERVIDOR DE INTERFAZ GRAFICA INICIADO")
@@ -238,10 +286,10 @@ def iniciar_servidor():
     threading.Timer(1.0, abrir_navegador).start()
 
     try:
-        httpd.serve_forever()
+        server_instance.serve_forever()
     except KeyboardInterrupt:
         print("\nCerrando servidor de interfaz gráfica...")
-        httpd.server_close()
+        server_instance.server_close()
 
 
 if __name__ == "__main__":

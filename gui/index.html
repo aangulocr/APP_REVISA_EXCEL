@@ -22,6 +22,10 @@
 
         <!-- Tarjeta Principal Glassmorphic -->
         <main class="main-card">
+            <div class="card-header">
+                <span class="card-title-text">Configuración</span>
+                <button type="button" class="exit-btn" id="btn-exit" title="Apagar el servidor y cerrar la ventana de comandos">✕ Apagar Servidor</button>
+            </div>
             
             <!-- Selector de Sistema Operativo -->
             <section class="section-group">
@@ -58,9 +62,14 @@
             </section>
 
             <!-- Botón de Acción Principal -->
-            <button type="button" class="run-btn" id="btn-run" aria-label="Iniciar auditoría de archivos">
-                <span class="run-icon">▶</span> Ejecutar Auditoría
-            </button>
+            <div class="actions-row">
+                <button type="button" class="run-btn" id="btn-run" aria-label="Iniciar auditoría de archivos">
+                    <span class="run-icon">▶</span> Ejecutar Auditoría
+                </button>
+                <button type="button" class="stop-btn" id="btn-stop" style="display: none;" aria-label="Cancelar auditoría en curso">
+                    <span>■</span> Cancelar
+                </button>
+            </div>
 
             <!-- Sección de Terminal de Registro -->
             <section class="console-section" id="console-area" style="display: none;">
