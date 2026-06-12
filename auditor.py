@@ -221,9 +221,18 @@ def auditar_libro(ruta_plantilla, ruta_estudiante, ruta_salida):
     # ----------------------------------------------------------------
     # COMPARACIÓN POR HOJAS
     # ----------------------------------------------------------------
+    import unicodedata
+
+    def _es_rubrica(nombre):
+        norm = "".join(
+            c for c in unicodedata.normalize('NFD', nombre)
+            if unicodedata.category(c) != 'Mn'
+        ).lower().strip()
+        return norm in ("rubrica", "rubricas")
+
     hojas_plantilla = [
         name for name in wb_plantilla.sheetnames
-        if wb_plantilla[name].sheet_state == "visible"
+        if wb_plantilla[name].sheet_state == "visible" and not _es_rubrica(name)
     ]
 
     for nombre_hoja in hojas_plantilla:
