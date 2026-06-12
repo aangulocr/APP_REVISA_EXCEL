@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditor de Excel - Panel de Control</title>
+    <!-- Fuente Outfit de Google Fonts para un diseño moderno -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="mesh-background"></div>
+    <div class="app-container">
+        <!-- Encabezado Principal -->
+        <header class="app-header">
+            <div class="logo-icon">🔍</div>
+            <h1>Auditor de Excel</h1>
+            <p class="subtitle">Revisión de Trabajos Cotidianos y Tareas</p>
+        </header>
+
+        <!-- Tarjeta Principal Glassmorphic -->
+        <main class="main-card">
+            
+            <!-- Selector de Sistema Operativo -->
+            <section class="section-group">
+                <label class="group-title">Sistema Operativo del Servidor</label>
+                <div class="os-selector">
+                    <button type="button" class="os-btn active" id="btn-win" data-os="windows">
+                        <span class="os-icon">❖</span> Windows
+                    </button>
+                    <button type="button" class="os-btn" id="btn-lin" data-os="linux">
+                        <span class="os-icon">🐧</span> Linux
+                    </button>
+                </div>
+            </section>
+
+            <!-- Selección de Archivo y Carpeta -->
+            <section class="section-group">
+                <label for="plantilla-path" class="group-title">Plantilla de Excel de Referencia (.xlsx)</label>
+                <div class="input-row">
+                    <input type="text" id="plantilla-path" placeholder="Cargando plantilla por defecto..." readonly>
+                    <button type="button" class="browse-btn" id="btn-browse-file" aria-label="Buscar archivo de plantilla">
+                        Buscar...
+                    </button>
+                </div>
+            </section>
+
+            <section class="section-group">
+                <label for="trabajos-path" class="group-title">Carpeta de Trabajos de Estudiantes</label>
+                <div class="input-row">
+                    <input type="text" id="trabajos-path" placeholder="Cargando carpeta por defecto..." readonly>
+                    <button type="button" class="browse-btn" id="btn-browse-folder" aria-label="Buscar carpeta de trabajos">
+                        Buscar...
+                    </button>
+                </div>
+            </section>
+
+            <!-- Botón de Acción Principal -->
+            <button type="button" class="run-btn" id="btn-run" aria-label="Iniciar auditoría de archivos">
+                <span class="run-icon">▶</span> Ejecutar Auditoría
+            </button>
+
+            <!-- Sección de Terminal de Registro -->
+            <section class="console-section" id="console-area" style="display: none;">
+                <div class="console-header">
+                    <span class="console-dot red"></span>
+                    <span class="console-dot yellow"></span>
+                    <span class="console-dot green"></span>
+                    <span class="console-title">Consola de Ejecución</span>
+                    <button type="button" class="clear-btn" id="btn-clear-console">Limpiar</button>
+                </div>
+                <div class="console-body" id="console-log">
+                    <div class="log-line system">Listo para comenzar. Presiona "Ejecutar Auditoría".</div>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="app-footer">
+            <p>Diseño Optimizado para Celulares y Tablets en el Aula | Versión 1.5</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
