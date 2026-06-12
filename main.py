@@ -121,6 +121,29 @@ def calcular_nivel(porcentaje):
         return 3
 
 
+def obtener_configuracion_csv():
+    """Detecta el separador decimal y de lista (delimitador) de Windows/sistema para Excel."""
+    decimal_sep = ","
+    delimiter_sep = ";"
+    
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\International")
+        decimal_sep = winreg.QueryValueEx(key, "sDecimal")[0]
+        delimiter_sep = winreg.QueryValueEx(key, "sList")[0]
+        winreg.CloseKey(key)
+    except Exception:
+        try:
+            import locale
+            locale.setlocale(locale.LC_ALL, '')
+            decimal_sep = locale.localeconv().get('decimal_point', ',')
+            delimiter_sep = ";" if decimal_sep == "," else ","
+        except Exception:
+            pass
+            
+    return decimal_sep, delimiter_sep
+
+
 def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
     """
     Genera el archivo LOG_NOTAS.csv con el resumen detallado de la auditoría.
@@ -142,13 +165,19 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
         logging.error(f"❌ Error al leer las hojas de la plantilla: {e}")
         hojas_plantilla = []
 
+    # Obtener separadores según la configuración del Excel del sistema
+    decimal_sep, delimiter_sep = obtener_configuracion_csv()
+    
+    def formatear_pct(valor):
+        return f"{valor:.1f}".replace(".", decimal_sep)
+
     # Extraer ID_Seccion del nombre del directorio de trabajos
     id_seccion = os.path.basename(os.path.abspath(ruta_trabajos))
     if not id_seccion:
         id_seccion = "SEC_DEFAULT"
 
     with open(ruta_csv, mode="w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f, delimiter=";")
+        writer = csv.writer(f, delimiter=delimiter_sep)
 
         # Construir encabezados dinámicamente
         encabezados = [
@@ -219,7 +248,7 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
                 fila.extend([
                     ac_hoja,
                     er_hoja,
-                    f"{pct_hoja:.1f}",
+                    formatear_pct(pct_hoja),
                     niv_hoja
                 ])
 
@@ -241,7 +270,7 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
                 aciertos_tot,
                 errores_tot if errores_tot >= 0 else 0,
                 total_tot,
-                f"{pct_tot:.1f}",
+                formatear_pct(pct_tot),
                 nivel_tot,
                 errores_objetos + errores_com
             ])
