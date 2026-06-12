@@ -158,7 +158,6 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
     # Construir encabezados dinámicamente
     encabezados = [
         "Fecha",
-        "ID_Seccion",
         "ID_Estudiante"
     ]
     
@@ -209,10 +208,11 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
 
     # Estilos de datos
     data_font = Font(name="Calibri", size=11, color="000000")
-    pct_fill = PatternFill(start_color="FFE6F0FA", end_color="FFE6F0FA", fill_type="solid") # Azul muy suave
-    align_center = Alignment(horizontal="center", vertical="center")
-    align_right = Alignment(horizontal="right", vertical="center")
-    align_left = Alignment(horizontal="left", vertical="center")
+    pct_fill = PatternFill(start_color="FFE2EFDA", end_color="FFE2EFDA", fill_type="solid") # Verde suave #E2EFDA
+    pct_font = Font(name="Calibri", size=11, bold=True, color="375623") # Verde oscuro #375623
+    align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    align_right = Alignment(horizontal="right", vertical="center", wrap_text=True)
+    align_left = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
     for row_idx, res in enumerate(resultados, 2):
         id_estudiante = os.path.splitext(res["archivo"])[0]
@@ -221,10 +221,9 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
         ws.cell(row=row_idx, column=1, value=fecha_objeto).number_format = 'dd/mm/yyyy'
         ws.cell(row=row_idx, column=1).alignment = align_center
         
-        ws.cell(row=row_idx, column=2, value=id_seccion).alignment = align_center
-        ws.cell(row=row_idx, column=3, value=id_estudiante).alignment = align_left
+        ws.cell(row=row_idx, column=2, value=id_estudiante).alignment = align_left
 
-        curr_col = 4
+        curr_col = 3
 
         # Detalle por hoja
         for hoja in hojas_plantilla:
@@ -260,7 +259,6 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
             c_pct = ws.cell(row=row_idx, column=curr_col, value=float(pct_hoja))
             c_pct.alignment = align_right
             c_pct.number_format = '0.0'
-            c_pct.fill = pct_fill
             curr_col += 1
 
         # Totales del libro
@@ -298,7 +296,6 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
         c_pctt = ws.cell(row=row_idx, column=curr_col, value=float(pct_tot))
         c_pctt.alignment = align_right
         c_pctt.number_format = '0.0'
-        c_pctt.fill = pct_fill
         curr_col += 1
 
         # Errores objetos/com
@@ -306,11 +303,17 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
         c_eoc.alignment = align_right
         c_eoc.number_format = '#,##0'
 
-        # Estilo de datos de toda la fila (borde y font)
+        # Estilo de datos de toda la fila (borde, font y relleno condicional)
         for col_idx in range(1, len(encabezados) + 1):
             celda = ws.cell(row=row_idx, column=col_idx)
-            celda.font = data_font
             celda.border = thin_border
+            
+            header_text = encabezados[col_idx - 1]
+            if "porcentaje" in header_text.lower() or "%" in header_text:
+                celda.font = pct_font
+                celda.fill = pct_fill
+            else:
+                celda.font = data_font
 
     # Ajustar anchos de columna basados en los datos (fila 2+)
     for col in ws.columns:
@@ -322,6 +325,11 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
                 max_len = max(max_len, len(val_str))
         # Ancho mínimo de 15 para cabeceras con wrap_text
         ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
+
+    # Activar autofilter en el encabezado
+    last_col = get_column_letter(len(encabezados))
+    last_row = len(resultados) + 1
+    ws.auto_filter.ref = f"A1:{last_col}{last_row}"
 
     try:
         wb.save(ruta_xlsx)
