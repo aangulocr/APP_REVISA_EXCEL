@@ -65,10 +65,11 @@ python main.py
 echo.
 echo ==========================================================
 if %errorlevel% equ 0 (
-    echo   Auditoria completada exitosamente.
+    echo   [ÉXITO] La auditoría finalizó correctamente sin errores.
 ) else (
-    echo   La auditoria finalizo con errores (codigo: %errorlevel%).
+    echo   [ERROR] La auditoría finalizó con errores (código de salida: %errorlevel%).
 )
 echo ==========================================================
 echo.
-pause
+echo El proceso ha terminado. Presiona cualquier tecla para finalizar y cerrar la ventana...
+pause >nul

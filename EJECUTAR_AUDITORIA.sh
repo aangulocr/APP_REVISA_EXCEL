@@ -72,14 +72,13 @@ EXIT_CODE=$?
 echo ""
 echo "=========================================================="
 if [ $EXIT_CODE -eq 0 ]; then
-    echo "  Auditoría completada exitosamente."
+    echo "  [ÉXITO] La auditoría finalizó correctamente sin errores."
 else
-    echo "  La auditoría finalizó con errores (código: $EXIT_CODE)."
+    echo "  [ERROR] La auditoría finalizó con errores (código de salida: $EXIT_CODE)."
 fi
 echo "=========================================================="
 echo ""
 
 deactivate
 
-# Pausa final similar a "pause" en Windows
-read -p "Presiona Enter para salir..."
+read -p "El proceso ha terminado. Presiona Enter para finalizar y cerrar la ventana..."
