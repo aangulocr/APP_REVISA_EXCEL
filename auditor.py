@@ -221,7 +221,10 @@ def auditar_libro(ruta_plantilla, ruta_estudiante, ruta_salida):
     # ----------------------------------------------------------------
     # COMPARACIÓN POR HOJAS
     # ----------------------------------------------------------------
-    hojas_plantilla = wb_plantilla.sheetnames
+    hojas_plantilla = [
+        name for name in wb_plantilla.sheetnames
+        if wb_plantilla[name].sheet_state == "visible"
+    ]
 
     for nombre_hoja in hojas_plantilla:
         if nombre_hoja in wb_estudiante.sheetnames:

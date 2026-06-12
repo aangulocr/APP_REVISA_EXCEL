@@ -133,7 +133,10 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
     # Obtener los nombres de las hojas de la plantilla para crear las columnas
     try:
         wb_p = openpyxl.load_workbook(ruta_plantilla, read_only=True)
-        hojas_plantilla = wb_p.sheetnames
+        hojas_plantilla = [
+            name for name in wb_p.sheetnames
+            if wb_p[name].sheet_state == "visible"
+        ]
         wb_p.close()
     except Exception as e:
         logging.error(f"❌ Error al leer las hojas de la plantilla: {e}")
