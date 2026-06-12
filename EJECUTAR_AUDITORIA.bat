@@ -18,6 +18,7 @@ if %errorlevel% neq 0 (
     echo.
     pause
     exit /b 1
+)
 echo.
 
 :: Configurar entorno virtual si no existe
