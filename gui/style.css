@@ -502,6 +502,38 @@ button:disabled, .os-btn:disabled, .browse-btn:disabled, .stop-btn:disabled {
     font-weight: 300;
 }
 
+/* Nuevos Estilos para los campos de Sección y Fecha */
+.fields-row {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+}
+
+.field-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.field-item input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 0 16px;
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    height: 48px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.field-item input:focus {
+    border-color: var(--primary-color);
+}
+
 /* Responsividad para Pantallas Pequeñas (Móviles) */
 @media (max-width: 480px) {
     .app-container {
@@ -525,5 +557,10 @@ button:disabled, .os-btn:disabled, .browse-btn:disabled, .stop-btn:disabled {
     
     .browse-btn {
         width: 100%;
+    }
+
+    .fields-row {
+        flex-direction: column;
+        gap: 12px;
     }
 }

@@ -13,7 +13,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Archivo maestro (plantilla de referencia)
-PLANTILLA_PATH = os.path.join(BASE_DIR, "PLANTILLA.xlsx")
+PLANTILLA_PATH = os.path.join(BASE_DIR, "PLANTILLAS", "PLANTILLA.xlsx")
 
 # Carpeta con los trabajos de los estudiantes
 TRABAJOS_DIR = os.path.join(BASE_DIR, "TRABAJOS_ESTUDIANTES")
@@ -21,8 +21,11 @@ TRABAJOS_DIR = os.path.join(BASE_DIR, "TRABAJOS_ESTUDIANTES")
 # Carpeta de salida para los archivos revisados
 REVISADOS_DIR = os.path.join(BASE_DIR, "REVISADOS")
 
-# Archivo CSV de resumen
-LOG_NOTAS_PATH = os.path.join(BASE_DIR, "LOG_NOTAS.csv")
+# Carpeta para guardar logs de auditoría y reportes Excel final
+LOGS_DIR = os.path.join(BASE_DIR, "LOGS")
+
+# Archivo de resumen por defecto (en la carpeta LOGS)
+LOG_NOTAS_PATH = os.path.join(LOGS_DIR, "LOG_NOTAS.xlsx")
 
 # --- Colores de retroalimentación ---
 # Rojo claro para celdas con errores (ARGB hex)

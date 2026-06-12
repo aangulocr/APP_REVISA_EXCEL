@@ -10,6 +10,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputTrabajos = document.getElementById("trabajos-path");
     const btnBrowseFile = document.getElementById("btn-browse-file");
     const btnBrowseFolder = document.getElementById("btn-browse-folder");
+    const inputSeccion = document.getElementById("input-seccion");
+    const inputFecha = document.getElementById("input-fecha");
     const btnRun = document.getElementById("btn-run");
     const btnStop = document.getElementById("btn-stop");
     const btnExit = document.getElementById("btn-exit");
@@ -20,6 +22,20 @@ document.addEventListener("DOMContentLoaded", () => {
     let selectedOS = "windows";
     let isRunning = false;
     let eventSource = null;
+
+    // Función para obtener la fecha de hoy en formato ddMMYY (ej: 120626)
+    function getTodayString() {
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yy = String(today.getFullYear()).substring(2);
+        return `${dd}${mm}${yy}`;
+    }
+
+    // Prefilar la fecha de hoy por defecto
+    if (inputFecha) {
+        inputFecha.value = getTodayString();
+    }
 
     // 1. Cargar Rutas por Defecto al Iniciar
     fetch("/api/defaults")
@@ -88,6 +104,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (data.path) {
                     inputTrabajos.value = data.path;
                     appendLog(`Carpeta de trabajos seleccionada: ${data.path}`, "system");
+                    
+                    // Sugerir sección del nombre de la carpeta si el campo de sección está vacío
+                    if (inputSeccion && !inputSeccion.value.trim()) {
+                        const parts = data.path.split(/[\\/]/);
+                        const folderName = parts.pop() || parts.pop();
+                        if (folderName && folderName !== "TRABAJOS_ESTUDIANTES") {
+                            inputSeccion.value = folderName;
+                            appendLog(`Sección sugerida basada en carpeta: ${folderName}`, "system");
+                        }
+                    }
                 }
             })
             .catch(err => {
@@ -112,6 +138,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const plantilla = inputPlantilla.value.trim();
         const trabajos = inputTrabajos.value.trim();
+        const fecha = inputFecha ? inputFecha.value.trim() : "";
+        const seccion = inputSeccion ? inputSeccion.value.trim() : "";
 
         if (!plantilla || !trabajos) {
             alert("Por favor, selecciona tanto el archivo de plantilla como la carpeta de trabajos.");
@@ -133,12 +161,16 @@ document.addEventListener("DOMContentLoaded", () => {
         btnWin.disabled = true;
         btnLin.disabled = true;
         btnExit.disabled = true;
+        if (inputSeccion) inputSeccion.disabled = true;
+        if (inputFecha) inputFecha.disabled = true;
 
         // Crear la URL con los parámetros correspondientes
         const params = new URLSearchParams({
             plantilla: plantilla,
             trabajos: trabajos,
-            os: selectedOS
+            os: selectedOS,
+            fecha: fecha,
+            seccion: seccion
         });
 
         // Conectar al endpoint SSE de ejecución
@@ -262,6 +294,8 @@ document.addEventListener("DOMContentLoaded", () => {
         btnWin.disabled = false;
         btnLin.disabled = false;
         btnExit.disabled = false;
+        if (inputSeccion) inputSeccion.disabled = false;
+        if (inputFecha) inputFecha.disabled = false;
         eventSource = null;
     }
 });

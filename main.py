@@ -35,13 +35,16 @@ from auditor import auditar_libro
 # CONFIGURACIÓN DE LOGGING
 # ============================================================================
 def configurar_logging():
-    """Configura el sistema de logging con salida a consola y archivo."""
+    """Configura el sistema de logging con salida básica a consola."""
     log_format = "%(asctime)s | %(levelname)-7s | %(message)s"
     date_format = "%Y-%m-%d %H:%M:%S"
 
     # Logger raíz
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    
+    # Limpiar handlers existentes para evitar duplicación
+    logger.handlers = []
 
     # Handler de consola
     ch = logging.StreamHandler(sys.stdout)
@@ -49,17 +52,26 @@ def configurar_logging():
     ch.setFormatter(logging.Formatter(log_format, datefmt=date_format))
     logger.addHandler(ch)
 
-    # Handler de archivo
-    log_file = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        f"auditoria_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    )
+    return logger
+
+
+def agregar_log_archivo(logger, seccion, fecha):
+    """Crea la carpeta LOGS si no existe y añade el manejador de archivo de log."""
+    log_format = "%(asctime)s | %(levelname)-7s | %(message)s"
+    date_format = "%Y-%m-%d %H:%M:%S"
+    
+    logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "LOGS")
+    os.makedirs(logs_dir, exist_ok=True)
+    
+    log_filename = f"{seccion}_auditoria_{fecha}.log"
+    log_file = os.path.join(logs_dir, log_filename)
+    
     fh = logging.FileHandler(log_file, encoding="utf-8")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(logging.Formatter(log_format, datefmt=date_format))
     logger.addHandler(fh)
-
-    return logger
+    
+    return log_file
 
 
 # ============================================================================
@@ -373,19 +385,44 @@ def main():
     )
     parser.add_argument(
         "--log",
-        default=LOG_NOTAS_PATH,
-        help=f"Ruta al archivo de resultados de Excel (default: {LOG_NOTAS_PATH})"
+        default=None,
+        help="Ruta al archivo de resultados de Excel (.xlsx)"
+    )
+    parser.add_argument(
+        "--fecha",
+        default=None,
+        help="Fecha de creacion personalizada (ej: 11MAY26)"
+    )
+    parser.add_argument(
+        "--seccion",
+        default=None,
+        help="Seccion del grupo evaluado (ej: 11-5B)"
     )
     args = parser.parse_args()
 
-    # Generar la marca de tiempo para el archivo de salida
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if args.log == LOG_NOTAS_PATH:
-        base_dir = os.path.dirname(LOG_NOTAS_PATH)
-        args.log = os.path.join(base_dir, f"LOG_NOTAS_{timestamp}.xlsx")
-    elif args.log.lower().endswith(".csv") or not args.log.lower().endswith(".xlsx"):
-        base, _ = os.path.splitext(args.log)
-        args.log = f"{base}_{timestamp}.xlsx"
+    # Determinar seccion y fecha para el formato de nombres de archivo
+    seccion = args.seccion
+    if not seccion:
+        seccion = os.path.basename(os.path.abspath(args.trabajos))
+        if not seccion or seccion == "TRABAJOS_ESTUDIANTES":
+            seccion = "11-XB"
+
+    fecha = args.fecha
+    if not fecha:
+        fecha = datetime.now().strftime("%d%m%y")
+
+    # Crear carpeta de logs si no existe
+    from config import LOGS_DIR
+    os.makedirs(LOGS_DIR, exist_ok=True)
+
+    # Agregar manejador de archivo de logs en la carpeta LOGS
+    agregar_log_archivo(logger, seccion, fecha)
+
+    # Configurar la ruta de salida del Excel final
+    if args.log:
+        args.log = os.path.abspath(args.log)
+    else:
+        args.log = os.path.join(LOGS_DIR, f"{seccion}_LOG_NOTAS_{fecha}.xlsx")
 
     # Banner
     logger.info("=" * 70)

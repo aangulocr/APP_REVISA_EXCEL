@@ -20,7 +20,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Directorio raíz del proyecto
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_PLANTILLA = os.path.abspath(os.path.join(BASE_DIR, "PLANTILLA.xlsx"))
+DEFAULT_PLANTILLA = os.path.abspath(os.path.join(BASE_DIR, "PLANTILLAS", "PLANTILLA.xlsx"))
 DEFAULT_TRABAJOS = os.path.abspath(os.path.join(BASE_DIR, "TRABAJOS_ESTUDIANTES"))
 
 PORT = 5000
@@ -147,6 +147,8 @@ class GUIHandler(BaseHTTPRequestHandler):
         plantilla = query.get("plantilla", [""])[0]
         trabajos = query.get("trabajos", [""])[0]
         os_selected = query.get("os", ["windows"])[0]
+        fecha = query.get("fecha", [""])[0]
+        seccion = query.get("seccion", [""])[0]
 
         if not plantilla or not trabajos:
             self.send_response(400)
@@ -166,6 +168,10 @@ class GUIHandler(BaseHTTPRequestHandler):
 
         # Comando para ejecutar con salida sin búfer (-u)
         cmd = [python_bin, "-u", "main.py", "--plantilla", plantilla, "--trabajos", trabajos]
+        if fecha:
+            cmd.extend(["--fecha", fecha])
+        if seccion:
+            cmd.extend(["--seccion", seccion])
 
         self.send_response(200)
         self.send_header('Content-Type', 'text/event-stream')
