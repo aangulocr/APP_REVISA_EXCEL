@@ -26,6 +26,7 @@ PLANTILLA-ORIG.xlsx
 # Logs generados
 *.log
 LOG_NOTAS.csv
+LOG_NOTAS*.xlsx
 
 # IDE
 .vscode/

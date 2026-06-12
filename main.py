@@ -107,41 +107,22 @@ def validar_rutas(ruta_plantilla, ruta_trabajos):
 
 
 # ============================================================================
-# GENERACIÓN DEL LOG CSV
+# GENERACIÓN DEL LOG XLSX
 # ============================================================================
-
-
-def obtener_configuracion_csv():
-    """Detecta el separador decimal y de lista (delimitador) de Windows/sistema para Excel."""
-    decimal_sep = ","
-    delimiter_sep = ";"
-    
-    try:
-        import winreg
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\International")
-        decimal_sep = winreg.QueryValueEx(key, "sDecimal")[0]
-        delimiter_sep = winreg.QueryValueEx(key, "sList")[0]
-        winreg.CloseKey(key)
-    except Exception:
-        try:
-            import locale
-            locale.setlocale(locale.LC_ALL, '')
-            decimal_sep = locale.localeconv().get('decimal_point', ',')
-            delimiter_sep = ";" if decimal_sep == "," else ","
-        except Exception:
-            pass
-            
-    return decimal_sep, delimiter_sep
-
-
-def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
+def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
     """
-    Genera el archivo LOG_NOTAS.csv con el resumen detallado de la auditoría.
+    Genera el archivo LOG_NOTAS_fecha-hora.xlsx con el resumen detallado de la auditoría.
     
-    Incluye ID_Estudiante, ID_Seccion, Fecha y detalle de aciertos, errores,
-    porcentaje y nivel de evaluación (0 a 3) por cada hoja del libro y en el total.
+    Aplica formatos profesionales modernos:
+      - Encabezado con color de relleno Azul Primario (#0056b3) y texto blanco.
+      - Fila 1 de cabecera alta con wrap_text.
+      - Columnas de porcentajes con fondo azul suave (#FFE6F0FA).
+      - Rejilla fina en todos los datos.
+      - Formato corto de fecha (dd/mm/yyyy) y valores numéricos nativos.
     """
     import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
     
     # Obtener los nombres de las hojas de la plantilla para crear las columnas
     try:
@@ -164,104 +145,189 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
         logging.error(f"❌ Error al leer las hojas de la plantilla: {e}")
         hojas_plantilla = []
 
-    # Obtener separadores según la configuración del Excel del sistema
-    decimal_sep, delimiter_sep = obtener_configuracion_csv()
-    
-    def formatear_pct(valor):
-        return f"{valor:.1f}".replace(".", decimal_sep)
-
     # Extraer ID_Seccion del nombre del directorio de trabajos
     id_seccion = os.path.basename(os.path.abspath(ruta_trabajos))
     if not id_seccion:
         id_seccion = "SEC_DEFAULT"
 
-    with open(ruta_csv, mode="w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f, delimiter=delimiter_sep)
+    # Crear nuevo libro Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Resumen Auditoría"
 
-        # Construir encabezados dinámicamente
-        encabezados = [
-            "Fecha",
-            "ID_Seccion",
-            "ID_Estudiante"
-        ]
-        
-        for hoja in hojas_plantilla:
-            encabezados.extend([
-                f"Aciertos {hoja}",
-                f"Errores {hoja}",
-                f"Porcentaje {hoja} (%)"
-            ])
-            
+    # Construir encabezados dinámicamente
+    encabezados = [
+        "Fecha",
+        "ID_Seccion",
+        "ID_Estudiante"
+    ]
+    
+    for hoja in hojas_plantilla:
         encabezados.extend([
-            "Aciertos Total",
-            "Errores Total",
-            "Total Evaluaciones",
-            "Porcentaje Total (%)",
-            "Errores en Objetos/COM"
+            f"Aciertos {hoja}",
+            f"Errores {hoja}",
+            f"Porcentaje {hoja} (%)"
         ])
         
-        writer.writerow(encabezados)
+    encabezados.extend([
+        "Aciertos Total",
+        "Errores Total",
+        "Total Evaluaciones",
+        "Porcentaje Total (%)",
+        "Errores en Objetos/COM"
+    ])
 
-        fecha_actual = datetime.now().strftime("%d/%m/%Y")
+    # Estilos del encabezado
+    header_fill = PatternFill(start_color="FF0056B3", end_color="FF0056B3", fill_type="solid") # Azul Primario #0056b3
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    
+    thin_border = Border(
+        left=Side(style='thin', color='CCCCCC'),
+        right=Side(style='thin', color='CCCCCC'),
+        top=Side(style='thin', color='CCCCCC'),
+        bottom=Side(style='thin', color='CCCCCC')
+    )
 
-        for res in resultados:
-            id_estudiante = os.path.splitext(res["archivo"])[0]
+    # Configurar altura de la cabecera
+    ws.row_dimensions[1].height = 42
 
-            fila = [
-                fecha_actual,
-                id_seccion,
-                id_estudiante
-            ]
+    # Escribir cabecera
+    for col_idx, encabezado in enumerate(encabezados, 1):
+        celda = ws.cell(row=1, column=col_idx, value=encabezado)
+        celda.fill = header_fill
+        celda.font = header_font
+        celda.alignment = header_align
+        celda.border = thin_border
 
-            # Procesar detalle por cada hoja
-            for hoja in hojas_plantilla:
-                detalle_hoja = None
-                for h in res.get("detalle_hojas", []):
-                    if h["hoja"] == hoja:
-                        detalle_hoja = h
-                        break
+    # Escribir filas de datos
+    fecha_actual_str = datetime.now().strftime("%d/%m/%Y")
+    try:
+        fecha_objeto = datetime.strptime(fecha_actual_str, "%d/%m/%Y").date()
+    except Exception:
+        fecha_objeto = fecha_actual_str
 
-                if detalle_hoja is not None:
-                    ac_hoja = detalle_hoja["aciertos"]
-                    er_hoja = detalle_hoja["errores"]
-                else:
-                    ac_hoja = 0
-                    # Si no hay detalle y no fue error de apertura, se marca como 1 error (hoja faltante)
-                    er_hoja = 1 if res["total_errores"] != -1 else 0
+    # Estilos de datos
+    data_font = Font(name="Calibri", size=11, color="000000")
+    pct_fill = PatternFill(start_color="FFE6F0FA", end_color="FFE6F0FA", fill_type="solid") # Azul muy suave
+    align_center = Alignment(horizontal="center", vertical="center")
+    align_right = Alignment(horizontal="right", vertical="center")
+    align_left = Alignment(horizontal="left", vertical="center")
 
-                tot_hoja = ac_hoja + er_hoja
-                pct_hoja = (ac_hoja / tot_hoja * 100) if tot_hoja > 0 else 0
+    for row_idx, res in enumerate(resultados, 2):
+        id_estudiante = os.path.splitext(res["archivo"])[0]
 
-                fila.extend([
-                    ac_hoja,
-                    er_hoja,
-                    formatear_pct(pct_hoja)
-                ])
+        # Fila base
+        ws.cell(row=row_idx, column=1, value=fecha_objeto).number_format = 'dd/mm/yyyy'
+        ws.cell(row=row_idx, column=1).alignment = align_center
+        
+        ws.cell(row=row_idx, column=2, value=id_seccion).alignment = align_center
+        ws.cell(row=row_idx, column=3, value=id_estudiante).alignment = align_left
 
-            # Procesar totales del libro
-            aciertos_tot = res["total_aciertos"]
-            errores_tot = res["total_errores"]
-            total_tot = aciertos_tot + errores_tot if errores_tot >= 0 else 0
-            pct_tot = (aciertos_tot / total_tot * 100) if total_tot > 0 else 0
+        curr_col = 4
 
-            # Contar errores de objetos y COM
-            errores_objetos = sum(
-                len(h.get("detalles_objetos", []))
-                for h in res.get("detalle_hojas", [])
-            )
-            errores_com = len(res.get("detalles_com", []))
+        # Detalle por hoja
+        for hoja in hojas_plantilla:
+            detalle_hoja = None
+            for h in res.get("detalle_hojas", []):
+                if h["hoja"] == hoja:
+                    detalle_hoja = h
+                    break
 
-            fila.extend([
-                aciertos_tot,
-                errores_tot if errores_tot >= 0 else 0,
-                total_tot,
-                formatear_pct(pct_tot),
-                errores_objetos + errores_com
-            ])
+            if detalle_hoja is not None:
+                ac_hoja = detalle_hoja["aciertos"]
+                er_hoja = detalle_hoja["errores"]
+            else:
+                ac_hoja = 0
+                er_hoja = 1 if res["total_errores"] != -1 else 0
 
-            writer.writerow(fila)
+            tot_hoja = ac_hoja + er_hoja
+            pct_hoja = (ac_hoja / tot_hoja * 100) if tot_hoja > 0 else 0.0
 
-    logging.info(f"\n📊 LOG_NOTAS.csv generado en: {ruta_csv}")
+            # Escribir aciertos
+            c_ac = ws.cell(row=row_idx, column=curr_col, value=ac_hoja)
+            c_ac.alignment = align_right
+            c_ac.number_format = '#,##0'
+            curr_col += 1
+
+            # Escribir errores
+            c_er = ws.cell(row=row_idx, column=curr_col, value=er_hoja)
+            c_er.alignment = align_right
+            c_er.number_format = '#,##0'
+            curr_col += 1
+
+            # Escribir porcentaje
+            c_pct = ws.cell(row=row_idx, column=curr_col, value=float(pct_hoja))
+            c_pct.alignment = align_right
+            c_pct.number_format = '0.0'
+            c_pct.fill = pct_fill
+            curr_col += 1
+
+        # Totales del libro
+        aciertos_tot = res["total_aciertos"]
+        errores_tot = res["total_errores"]
+        total_tot = aciertos_tot + errores_tot if errores_tot >= 0 else 0
+        pct_tot = (aciertos_tot / total_tot * 100) if total_tot > 0 else 0.0
+
+        errores_objetos = sum(
+            len(h.get("detalles_objetos", []))
+            for h in res.get("detalle_hojas", [])
+        )
+        errores_com = len(res.get("detalles_com", []))
+        total_err_obj_com = errores_objetos + errores_com
+
+        # Aciertos total
+        c_act = ws.cell(row=row_idx, column=curr_col, value=aciertos_tot)
+        c_act.alignment = align_right
+        c_act.number_format = '#,##0'
+        curr_col += 1
+
+        # Errores total
+        c_ert = ws.cell(row=row_idx, column=curr_col, value=errores_tot if errores_tot >= 0 else 0)
+        c_ert.alignment = align_right
+        c_ert.number_format = '#,##0'
+        curr_col += 1
+
+        # Total evaluaciones
+        c_tte = ws.cell(row=row_idx, column=curr_col, value=total_tot)
+        c_tte.alignment = align_right
+        c_tte.number_format = '#,##0'
+        curr_col += 1
+
+        # Porcentaje total
+        c_pctt = ws.cell(row=row_idx, column=curr_col, value=float(pct_tot))
+        c_pctt.alignment = align_right
+        c_pctt.number_format = '0.0'
+        c_pctt.fill = pct_fill
+        curr_col += 1
+
+        # Errores objetos/com
+        c_eoc = ws.cell(row=row_idx, column=curr_col, value=total_err_obj_com)
+        c_eoc.alignment = align_right
+        c_eoc.number_format = '#,##0'
+
+        # Estilo de datos de toda la fila (borde y font)
+        for col_idx in range(1, len(encabezados) + 1):
+            celda = ws.cell(row=row_idx, column=col_idx)
+            celda.font = data_font
+            celda.border = thin_border
+
+    # Ajustar anchos de columna basados en los datos (fila 2+)
+    for col in ws.columns:
+        col_letter = get_column_letter(col[0].column)
+        max_len = 0
+        for cell in col[1:]: # Omitir fila 1
+            if cell.value is not None:
+                val_str = cell.value.strftime('%d/%m/%Y') if hasattr(cell.value, 'strftime') else str(cell.value)
+                max_len = max(max_len, len(val_str))
+        # Ancho mínimo de 15 para cabeceras con wrap_text
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
+
+    try:
+        wb.save(ruta_xlsx)
+        logging.info(f"\n📊 Reporte Excel generado en: {ruta_xlsx}")
+    except Exception as e:
+        logging.error(f"❌ No se pudo guardar el archivo Excel '{ruta_xlsx}': {e}")
 
 
 # ============================================================================
@@ -300,9 +366,18 @@ def main():
     parser.add_argument(
         "--log",
         default=LOG_NOTAS_PATH,
-        help=f"Ruta al archivo LOG_NOTAS.csv (default: {LOG_NOTAS_PATH})"
+        help=f"Ruta al archivo de resultados de Excel (default: {LOG_NOTAS_PATH})"
     )
     args = parser.parse_args()
+
+    # Generar la marca de tiempo para el archivo de salida
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if args.log == LOG_NOTAS_PATH:
+        base_dir = os.path.dirname(LOG_NOTAS_PATH)
+        args.log = os.path.join(base_dir, f"LOG_NOTAS_{timestamp}.xlsx")
+    elif args.log.lower().endswith(".csv") or not args.log.lower().endswith(".xlsx"):
+        base, _ = os.path.splitext(args.log)
+        args.log = f"{base}_{timestamp}.xlsx"
 
     # Banner
     logger.info("=" * 70)
@@ -354,9 +429,9 @@ def main():
             })
 
     # ----------------------------------------------------------------
-    # GENERAR LOG CSV
+    # GENERAR LOG XLSX
     # ----------------------------------------------------------------
-    generar_log_csv(resultados, args.log, args.plantilla, args.trabajos)
+    generar_log_xlsx(resultados, args.log, args.plantilla, args.trabajos)
 
     # ----------------------------------------------------------------
     # RESUMEN FINAL
