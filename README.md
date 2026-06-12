@@ -1,82 +1,122 @@
-# Auditor de Excel - Comparador de Fidelidad Total
+# Manual de Usuario: Auditor de Excel (Panel de Control Gráfico)
 
-Este es un sistema automatizado (el "Motor principal de auditoría") diseñado para comparar masivamente archivos de Excel entregados por estudiantes contra un archivo "plantilla" o "rúbrica" del profesor.
+Bienvenido al **Auditor de Excel - Comparador de Fidelidad Total**. Este es un sistema de grado profesional diseñado para automatizar la revisión masiva de trabajos, exámenes y tareas prácticas de Microsoft Excel entregados por estudiantes, comparándolos celda por celda contra una plantilla de referencia.
 
-El programa evalúa celda por celda, revisando fórmulas, valores, formatos (color, bordes), validaciones de datos, tablas, gráficos y otros objetos de Excel, y entrega un archivo calificado marcando los errores, además de un resumen de notas en formato CSV.
+El sistema evalúa de forma inteligente valores, fórmulas, formatos (colores de celda, fuentes, negritas, cursivas, bordes), anchos de columnas, altos de filas, celdas combinadas, tablas de Excel, validaciones de datos y objetos complejos (como gráficos).
 
 ---
 
 ## 🛠️ Requisitos Previos
 
-Antes de poder utilizar el programa, necesitas tener instalado lo siguiente en tu computadora:
+Antes de utilizar la aplicación, debes asegurar que tu computadora cuenta con:
 
-1. **Python 3:**
-   - **Windows:** Descárgalo desde [python.org](https://www.python.org/downloads/). ¡Muy importante! Durante la instalación, **marca la casilla que dice "Add Python to PATH"** (Agregar Python al PATH).
-   - **Linux:** Generalmente ya viene instalado. Puedes verificarlo abriendo una terminal y escribiendo `python3 --version`.
-2. **Dependencias de Python:**
-   - Abre una terminal (o Símbolo de sistema / CMD en Windows) en la carpeta de este proyecto y ejecuta el siguiente comando para instalar las librerías necesarias:
-     ```bash
-     pip install -r requirements.txt
-     ```
-     *(En algunos sistemas Linux, puede que necesites usar `pip3 install -r requirements.txt`).*
+1. **Python 3 instalado**:
+   * **Windows**: Descarga el instalador desde [python.org](https://www.python.org/downloads/). Al instalarlo, es **imprescindible marcar la casilla "Add Python to PATH"**.
+   * **Linux / macOS**: Viene integrado de forma nativa. Puedes validarlo ejecutando `python3 --version` en una terminal.
+2. **Dependencias del sistema**:
+   La primera vez que ejecutes el sistema (o usando el lanzador rápido), se instalarán de forma automática las librerías necesarias (`openpyxl` y `pywin32` para Windows).
 
 ---
 
-## 📁 Preparación de los Archivos
+## 📁 Preparación de Archivos (Estructura de Directorios)
 
-Para que el programa funcione, el directorio principal del proyecto debe tener exactamente la siguiente estructura de archivos preparados por ti:
+Para que el auditor localice tus archivos, tu carpeta del proyecto debe organizarse de la siguiente manera:
 
-1. **`PLANTILLA.xlsx`:** Este es tu archivo maestro o rúbrica. Contiene las respuestas correctas, formatos esperados, etc. *Debe llamarse exactamente así y estar en la carpeta principal.*
-2. **Carpeta `TRABAJOS_ESTUDIANTES`:** Crea una carpeta con este nombre exacto en el directorio principal.
-3. **Archivos de los alumnos:** Coloca todos los archivos `.xlsx` que entregaron los estudiantes dentro de la carpeta `TRABAJOS_ESTUDIANTES`.
+1. **La Carpeta `PLANTILLAS`**:
+   * Crea una carpeta llamada `PLANTILLAS` en la raíz.
+   * Guarda allí tu archivo maestro de respuestas correctas con el nombre exacto **`PLANTILLA.xlsx`**.
+2. **La Carpeta `TRABAJOS_ESTUDIANTES`**:
+   * Coloca en esta carpeta todos los archivos de Excel entregados por tus estudiantes (deben ser archivos `.xlsx`).
+3. **La Carpeta `LOGS`**:
+   * Se crea de forma automática la primera vez que ejecutas el programa. Guardará los resultados finales y los registros históricos.
 
-La carpeta del proyecto debería verse algo así:
+### Vista de la Estructura de Carpetas:
 ```text
 APP_REVISA_EXCEL/
-├── EJECUTAR_AUDITORIA.bat
-├── EJECUTAR_AUDITORIA.sh
-├── main.py
-├── auditor.py
-├── ... (otros archivos .py)
-├── PLANTILLA.xlsx                 <-- ¡Tu archivo maestro!
-└── TRABAJOS_ESTUDIANTES/          <-- ¡Carpeta con los trabajos!
-    ├── juan_perez.xlsx
-    ├── maria_gomez.xlsx
-    └── ...
+├── PLANTILLAS/
+│   └── PLANTILLA.xlsx                 <-- Tu archivo maestro de respuestas
+├── TRABAJOS_ESTUDIANTES/              <-- Archivos entregados por alumnos
+│   ├── juan_perez.xlsx
+│   ├── maria_gomez.xlsx
+│   └── ...
+├── REVISADOS/                         <-- Archivos calificados (se genera sola)
+├── LOGS/                              <-- Reportes Excel e Historiales (se genera sola)
+├── EJECUTAR_INTERFAZ.bat              <-- Lanzador de Interfaz (Windows)
+├── EJECUTAR_INTERFAZ.sh               <-- Lanzador de Interfaz (Linux)
+├── gui_server.py                      <-- Servidor Backend local
+└── gui/                               <-- Recursos Web de la Interfaz
 ```
 
-*(Nota: Si quieres probar el programa sin tener archivos reales, puedes ejecutar el script `crear_datos_prueba.py` el cual generará automáticamente una plantilla y trabajos simulados para que veas cómo funciona).*
+---
+
+## 🚀 Uso del Panel de Control Gráfico (Recomendado)
+
+La aplicación cuenta con una interfaz web responsiva y moderna con diseño *glassmorphic* (translúcido) que facilita la configuración y ejecución. 
+
+> [!TIP]
+> **Uso inalámbrico en el aula:** El servidor se enlaza a la red local. Al iniciar la aplicación en tu computadora, puedes controlarla desde tu teléfono celular o tablet conectándote a la red Wi-Fi del aula e ingresando en tu móvil la dirección `http://<ip-de-tu-computadora>:5000`.
+
+### 1. Iniciar la Interfaz
+* **En Windows**: Haz doble clic sobre el archivo **`EJECUTAR_INTERFAZ.bat`**.
+* **En Linux / macOS**: Ejecuta el archivo **`EJECUTAR_INTERFAZ.sh`** desde tu gestor de archivos o mediante terminal:
+  ```bash
+  ./EJECUTAR_INTERFAZ.sh
+  ```
+Esto iniciará el servidor local y abrirá tu navegador web predeterminado en `http://localhost:5000`.
+
+### 2. Configurar la Auditoría
+Una vez abierta la interfaz en tu navegador o móvil:
+* **Sistema Operativo**: Elige si el servidor de auditoría corre en **Windows** o **Linux** mediante el selector superior.
+* **Plantilla y Trabajos**: La app prellena las rutas por defecto. Puedes utilizar los botones **Buscar...** para abrir una ventana nativa de tu computadora y seleccionar un archivo de plantilla o una carpeta de trabajos diferente.
+* **Sección / Grupo**: Escribe la sección correspondiente (ej: `11-5B`).
+  * *Auto-sugerencia*: Al buscar y seleccionar tu carpeta de trabajos, la interfaz extraerá el nombre del directorio y autocompletará este campo automáticamente si lo dejaste vacío.
+* **Fecha de Creación**: Escribe la fecha descriptiva o código para el reporte (ej: `11MAY26` o `120626`).
+  * *Prellenado Inteligente*: Al cargar, la interfaz preconfigura la fecha actual del sistema en formato corto de 6 dígitos (`ddMMYY`).
+
+### 3. Ejecutar y Monitorear
+* Haz clic en el gran botón **Ejecutar Auditoría**. Todos los controles se inhabilitarán para evitar clics dobles accidentales.
+* La **Consola de Ejecución** aparecerá en la parte inferior mostrando en tiempo real los resultados de la auditoría. Las líneas tienen colores según su estado (Verde: Éxito/Aciertos, Rojo: Errores, Amarillo: Advertencias, Blanco/Gris: Sistema).
+
+### 4. Cancelar o Apagar
+* **Cancelar Auditoría**: Si necesitas abortar una revisión en progreso, presiona el botón **Cancelar** (`■`). El flujo SSE se desconectará en el cliente y detendrá de forma segura el subproceso de Python en el servidor.
+* **Apagar Servidor**: Cuando termines tus labores de revisión, haz clic en el botón rojo **✕ Apagar Servidor** en la esquina superior derecha. Tras confirmar, el servidor HTTP se detendrá de forma segura y **la ventana de comandos (CMD) se cerrará automáticamente en tu sistema**, liberando el puerto.
 
 ---
 
-## 🚀 Cómo Ejecutar la Auditoría
+## 📊 Interpretación de Resultados
 
-Una vez que tengas la plantilla y los trabajos en su lugar, iniciar el proceso es muy sencillo dependiendo de tu sistema operativo:
+Cuando finalice el proceso, la aplicación generará dos salidas principales:
 
-### En Windows
-1. Haz **doble clic** en el archivo **`EJECUTAR_AUDITORIA.bat`**.
-2. Se abrirá una ventana negra (consola) mostrando el progreso de la revisión hoja por hoja y alumno por alumno.
-3. Al finalizar, la ventana te avisará que la auditoría fue completada exitosamente. Presiona cualquier tecla para cerrar.
+### 1. Retroalimentación Detallada (Carpeta `REVISADOS/`)
+Dentro de la carpeta `REVISADOS` se creará una copia calificada de cada archivo del alumno con el sufijo `_REV` (ej: `juan_perez_REV.xlsx`).
+* El auditor **pintará de color rojo** el fondo de cualquier celda donde el estudiante tenga un fallo.
+* Insertará un **comentario de Excel** detallando qué se esperaba (ej: valor esperado, fórmula esperada, o fallo de formato) y qué fue lo que encontró en el archivo del estudiante.
 
-### En Linux
-1. Abre tu explorador de archivos (por ejemplo, Nemo, Nautilus).
-2. Ve a la carpeta del proyecto.
-3. Haz **doble clic** en el archivo **`EJECUTAR_AUDITORIA.sh`** y selecciona la opción **"Ejecutar en un terminal"**.
-4. Alternativamente, puedes abrir tu terminal en esa carpeta y ejecutar:
-   ```bash
-   ./EJECUTAR_AUDITORIA.sh
-   ```
+### 2. Informe Consolidado de Calificaciones (Carpeta `LOGS/`)
+Se generará un archivo consolidado en Excel y su respectivo registro de auditoría con los nombres dinámicos especificados:
+* **Excel consolidado**: `LOGS/{seccion}_LOG_NOTAS_{fecha}.xlsx` (ej: `11-5B_LOG_NOTAS_11MAY26.xlsx`).
+* **Historial log**: `LOGS/{seccion}_auditoria_{fecha}.log` (ej: `11-5B_auditoria_11MAY26.log`).
+
+El libro Excel consolidado cuenta con el siguiente formato profesional:
+* **Filtros Automáticos**: Fila de encabezado lista para filtrar calificaciones o buscar estudiantes.
+* **Ajuste de Texto**: Celdas con wrap-text habilitado para leer cómodamente textos largos.
+* **Visualización de Porcentajes**: Columnas de porcentaje resaltadas con fondo verde suave y texto verde oscuro en negrita de alta legibilidad, facilitando la identificación de notas finales y rendimientos por hoja.
+* **Métricas**: Detalla la cantidad exacta de aciertos y errores por cada una de las pestañas visibles del libro de Excel, la suma total de aciertos/errores de todo el libro, el porcentaje total, y los errores de objetos complejos.
 
 ---
 
-## 📊 Resultados de la Auditoría
+## 💻 Uso Avanzado por Consola (CLI)
 
-Cuando el programa termina de ejecutarse, generará automáticamente lo siguiente:
+Si prefieres omitir la interfaz gráfica, puedes invocar el script directamente desde la terminal de tu sistema operativo dentro de la carpeta del proyecto:
 
-1. **Carpeta `REVISADOS/`:** Se creará una nueva carpeta con este nombre. Adentro encontrarás una copia de cada trabajo del estudiante pero con el sufijo `_REV` (ej. `juan_perez_REV.xlsx`). Si abres estos archivos, **verás celdas pintadas de rojo o con comentarios** indicando exactamente dónde se equivocó el estudiante respecto a la plantilla.
-2. **Archivo `LOG_NOTAS.csv`:** Este archivo es tu registro final de calificaciones. Puedes abrirlo con Excel y verás una tabla resumiendo los resultados de toda la clase:
-   - Nombre del estudiante.
-   - Cantidad de aciertos y errores.
-   - Porcentaje de precisión (nota).
-   - Errores específicos en objetos complejos (como gráficos o tablas).
-3. **Archivo de Log (ej. `auditoria_20260606_120000.log`):** Un archivo de texto detallado por si necesitas revisar internamente qué comparó el programa paso a paso o por si ocurrió algún error de lectura.
+```bash
+.venv/Scripts/python.exe main.py --plantilla "PLANTILLAS/PLANTILLA.xlsx" --trabajos "TRABAJOS_ESTUDIANTES" --seccion "11-5B" --fecha "11MAY26"
+```
+
+### Argumentos de Consola Disponibles:
+* `--plantilla`: Ruta al archivo de plantilla de Excel.
+* `--trabajos`: Ruta a la carpeta con los archivos de los estudiantes.
+* `--salida`: Carpeta donde se guardarán los Excel corregidos (default: `REVISADOS`).
+* `--log`: Especifica un nombre/ruta particular de salida de reporte (si se omite, se guarda por defecto en `LOGS/` con el patrón `{seccion}_LOG_NOTAS_{fecha}.xlsx`).
+* `--seccion`: Nombre del grupo de estudiantes (default: extraído de la carpeta de trabajos).
+* `--fecha`: Fecha del reporte en formato texto (default: fecha corta del sistema `ddMMYY`).
