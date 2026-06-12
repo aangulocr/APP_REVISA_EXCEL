@@ -192,8 +192,7 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
         encabezados = [
             "Fecha",
             "ID_Seccion",
-            "ID_Estudiante",
-            "Nombre del Estudiante"
+            "ID_Estudiante"
         ]
         
         for hoja in hojas_plantilla:
@@ -219,19 +218,11 @@ def generar_log_csv(resultados, ruta_csv, ruta_plantilla, ruta_trabajos):
 
         for res in resultados:
             id_estudiante = os.path.splitext(res["archivo"])[0]
-            
-            # Limpiar nombre del estudiante para mayor legibilidad
-            nombre_estudiante = id_estudiante
-            if " - " in id_estudiante:
-                nombre_estudiante = id_estudiante.split(" - ")[-1].strip()
-            elif "-" in id_estudiante:
-                nombre_estudiante = id_estudiante.split("-")[-1].strip()
 
             fila = [
                 fecha_actual,
                 id_seccion,
-                id_estudiante,
-                nombre_estudiante
+                id_estudiante
             ]
 
             # Procesar detalle por cada hoja
