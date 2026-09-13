@@ -16,6 +16,7 @@ y celdas del estudiante. Detecta diferencias en:
 """
 
 import re
+import openpyxl.utils
 from openpyxl.styles import PatternFill
 from openpyxl.comments import Comment
 from config import COLOR_ERROR_FILL, MENSAJES
@@ -142,46 +143,115 @@ def _normalizar_formula(formula):
     return f
 
 
+# Funciones de agregación donde los argumentos son conmutativos
+# y donde un rango (ej: J3:J8) equivale a la lista de sus celdas individuales
+FUNCIONES_AGREGACION_CONMUTATIVAS = {
+    "SUM", "AVERAGE", "MIN", "MAX", "COUNT", "COUNTA", "PRODUCT", "MEDIAN"
+}
+
+
+def _expandir_argumentos(args_str):
+    """
+    Toma un string de argumentos de una función, permite comas o punto y coma,
+    y expande cualquier rango (ej. 'J3:J8' -> ['J3', 'J4', 'J5', 'J6', 'J7', 'J8']).
+    Elimina signos '$' para comparación lógica neutral.
+    Retorna la lista ordenada de celdas/términos expandidos.
+    """
+    if not args_str:
+        return []
+    # Normalizar separador ; a ,
+    norm_str = args_str.replace(";", ",")
+    partes = [p.strip() for p in norm_str.split(",") if p.strip()]
+    expandidos = []
+    for parte in partes:
+        p_clean = parte.replace("$", "").strip()
+        if ":" in p_clean:
+            try:
+                min_col, min_row, max_col, max_row = openpyxl.utils.range_boundaries(p_clean)
+                if min_col and min_row and max_col and max_row:
+                    for c in range(min_col, max_col + 1):
+                        col_let = openpyxl.utils.get_column_letter(c)
+                        for r in range(min_row, max_row + 1):
+                            expandidos.append(f"{col_let}{r}")
+                    continue
+            except Exception:
+                pass
+        expandidos.append(p_clean)
+    return sorted(expandidos)
+
+
+def _analizar_formula_agregacion(formula):
+    """
+    Determina si una fórmula es una llamada a función de agregación conmutativa.
+    Ejemplo: '=AVERAGE(H5:I5)' -> ('AVERAGE', ['H5', 'I5'])
+             '=SUMA(J3;J4;J5)' -> ('SUM', ['J3', 'J4', 'J5'])
+    Retorna (nombre_funcion_en_ingles, lista_ordenada_de_celdas) o (None, []).
+    """
+    if not formula or not isinstance(formula, str):
+        return None, []
+    f = formula.strip().upper()
+    m = re.match(r"^=([A-Z0-9_\.]+)\s*\((.*)\)$", f)
+    if not m:
+        return None, []
+    func_raw = m.group(1).strip()
+    args_str = m.group(2).strip()
+
+    # Si hay paréntesis dentro de los argumentos (funciones anidadas), no aplanar
+    if "(" in args_str or ")" in args_str:
+        return None, []
+
+    # Traducir función de español a inglés si aplica
+    func_en = FUNCIONES_ES_A_EN.get(func_raw, func_raw)
+    if func_en in FUNCIONES_AGREGACION_CONMUTATIVAS:
+        celdas = _expandir_argumentos(args_str)
+        return func_en, celdas
+
+    return None, []
+
+
+def _analizar_operacion_cadena(formula, operador):
+    """
+    Extrae los operandos de una cadena simple con un único operador (+ o *).
+    Ejemplo: '=J3+J4+J5' con operador '+' -> ['J3', 'J4', 'J5']
+             '=D5+E5' con operador '+' -> ['D5', 'E5']
+    Elimina signos '$' y retorna la lista ordenada.
+    """
+    if not formula or not isinstance(formula, str) or not formula.startswith("="):
+        return []
+    cuerpo = formula[1:].strip().upper()
+    if "(" in cuerpo or ")" in cuerpo:
+        return []
+
+    # Verificar que no contenga operadores no deseados
+    otros_ops = ["-", "/", "*"] if operador == "+" else ["-", "/", "+"]
+    if any(op in cuerpo for op in otros_ops):
+        return []
+
+    if operador not in cuerpo:
+        return []
+
+    partes = [p.strip().replace("$", "") for p in cuerpo.split(operador) if p.strip()]
+    return sorted(partes)
+
+
 def _formulas_conmutativas_equivalentes(f1_norm, f2_norm):
     """
     Verifica si dos fórmulas normalizadas son equivalentes bajo
     conmutatividad de suma (+) o multiplicación (*).
-
-    Solo aplica a expresiones aritméticas simples SIN funciones.
-    La resta (-) y la división (/) NO son conmutativas y se excluyen.
-
-    Ejemplos que retornan True:
-        '=C3*D3'   vs '=D3*C3'
-        '=C3*3%'   vs '=3%*C3'
-        '=F5+G5'   vs '=G5+F5'
-        '=A1+B1+C1' vs '=C1+A1+B1'
-
-    Parámetros:
-        f1_norm: Fórmula 1 ya normalizada (mayúsculas, sin prefijos).
-        f2_norm: Fórmula 2 ya normalizada (mayúsculas, sin prefijos).
-
-    Retorna:
-        bool: True si son equivalentes bajo conmutatividad.
+    Conserva compatibilidad para multiplicaciones con porcentajes (ej. =C3*3% vs =3%*C3).
     """
-    # Ambas deben ser fórmulas válidas que empiecen con =
     if not f1_norm or not f2_norm:
         return False
     if not f1_norm.startswith("=") or not f2_norm.startswith("="):
         return False
 
-    # Extraer el cuerpo de la fórmula (sin el =)
     cuerpo1 = f1_norm[1:].strip()
     cuerpo2 = f2_norm[1:].strip()
 
-    # Si contienen funciones (paréntesis), no aplicar conmutatividad simple
     if "(" in cuerpo1 or "(" in cuerpo2:
         return False
 
-    # Determinar el operador conmutativo usado
-    # Solo aplica si la fórmula usa EXCLUSIVAMENTE + o EXCLUSIVAMENTE *
-    # (no mezcla de operadores, ni resta ni división)
     for operador in ("+", "*"):
-        # Verificar que no haya operadores NO conmutativos mezclados
         otros_ops = ["-", "/"] if operador == "+" else ["-", "/", "+"]
         if operador == "*":
             otros_ops = ["-", "/", "+"]
@@ -194,19 +264,80 @@ def _formulas_conmutativas_equivalentes(f1_norm, f2_norm):
         if not tiene_op1 or not tiene_op2:
             continue
 
-        # Verificar que no haya otros operadores mezclados
         tiene_otros1 = any(op in cuerpo1 for op in otros_ops)
         tiene_otros2 = any(op in cuerpo2 for op in otros_ops)
 
         if tiene_otros1 or tiene_otros2:
             continue
 
-        # Separar por el operador y ordenar los operandos
         operandos1 = sorted(part.strip() for part in cuerpo1.split(operador))
         operandos2 = sorted(part.strip() for part in cuerpo2.split(operador))
 
         if operandos1 == operandos2:
             return True
+
+    return False
+
+
+def _formulas_son_equivalentes(f1_norm, f2_norm):
+    """
+    Evalúa si dos fórmulas normalizadas son matemáticamente equivalentes,
+    cubriendo:
+      1. Separadores intercambiables (',' y ';').
+      2. Expansión de rangos vs celdas desglosadas (ej. H5:I5 == H5;I5 o J3:J8 == J3;J4;...;J8).
+      3. Equivalencia entre SUM(...) y suma directa A+B+C...
+      4. Equivalencia entre PRODUCT(...) y multiplicación A*B*C...
+      5. Conmutatividad pura (+ y *).
+      6. Funciones en español vs inglés (SUMA == SUM, PROMEDIO == AVERAGE).
+    """
+    if not f1_norm or not f2_norm:
+        return False
+    if f1_norm == f2_norm:
+        return True
+
+    # 1. Comparar como funciones de agregación (SUM, AVERAGE, etc.)
+    func1, celdas1 = _analizar_formula_agregacion(f1_norm)
+    func2, celdas2 = _analizar_formula_agregacion(f2_norm)
+
+    if func1 and func2:
+        if func1 == func2 and celdas1 == celdas2:
+            return True
+
+    # 2. Equivalencia SUM(...) vs cadena de sumas A+B+C...
+    if func1 == "SUM":
+        sumandos2 = _analizar_operacion_cadena(f2_norm, "+")
+        if sumandos2 and celdas1 == sumandos2:
+            return True
+    if func2 == "SUM":
+        sumandos1 = _analizar_operacion_cadena(f1_norm, "+")
+        if sumandos1 and celdas2 == sumandos1:
+            return True
+
+    # 3. Equivalencia PRODUCT(...) vs cadena de multiplicaciones A*B*C...
+    if func1 == "PRODUCT":
+        factores2 = _analizar_operacion_cadena(f2_norm, "*")
+        if factores2 and celdas1 == factores2:
+            return True
+    if func2 == "PRODUCT":
+        factores1 = _analizar_operacion_cadena(f1_norm, "*")
+        if factores1 and celdas2 == factores1:
+            return True
+
+    # 4. Ambas son cadenas de sumas directas (+ conmutativo, sin '$')
+    sumandos1 = _analizar_operacion_cadena(f1_norm, "+")
+    sumandos2 = _analizar_operacion_cadena(f2_norm, "+")
+    if sumandos1 and sumandos2 and sumandos1 == sumandos2:
+        return True
+
+    # 5. Ambas son cadenas de multiplicaciones directas (* conmutativo, sin '$')
+    factores1 = _analizar_operacion_cadena(f1_norm, "*")
+    factores2 = _analizar_operacion_cadena(f2_norm, "*")
+    if factores1 and factores2 and factores1 == factores2:
+        return True
+
+    # 6. Conmutatividad con operandos literales (ej. C3*3% vs 3%*C3)
+    if _formulas_conmutativas_equivalentes(f1_norm, f2_norm):
+        return True
 
     return False
 
@@ -313,25 +444,24 @@ def comparar_celda(celda_plantilla, celda_estudiante, ws_plantilla_data=None):
         
         if formula_p_norm != formula_e_norm:
             # Antes de marcar error, verificar si son equivalentes
-            # bajo conmutatividad de + o * (el orden no importa)
-            if not _formulas_conmutativas_equivalentes(formula_p_norm, formula_e_norm):
+            # (conmutatividad, rangos desglosados, suma directa vs SUM, etc.)
+            if not _formulas_son_equivalentes(formula_p_norm, formula_e_norm):
                 errores.append(
                     MENSAJES["formula"].format(
                         esperado=formula_p_raw,
                         encontrado=formula_e_raw or "(vacío)"
                     )
                 )
-        
-        # Comparar funciones utilizadas
-        func_p = _extraer_funciones(formula_p_raw)
-        func_e = _extraer_funciones(formula_e_raw)
-        if func_p != func_e:
-            errores.append(
-                MENSAJES["funcion"].format(
-                    esperado=", ".join(func_p) if func_p else "(ninguna)",
-                    encontrado=", ".join(func_e) if func_e else "(ninguna)"
-                )
-            )
+                # Comparar funciones utilizadas solo si las fórmulas NO son equivalentes
+                func_p = _extraer_funciones(formula_p_raw)
+                func_e = _extraer_funciones(formula_e_raw)
+                if func_p != func_e:
+                    errores.append(
+                        MENSAJES["funcion"].format(
+                            esperado=", ".join(func_p) if func_p else "(ninguna)",
+                            encontrado=", ".join(func_e) if func_e else "(ninguna)"
+                        )
+                    )
     else:
         # Si no es fórmula, la damos por correcta automáticamente (no resta puntos)
         return True, []
