@@ -142,6 +142,75 @@ def _normalizar_formula(formula):
     return f
 
 
+def _formulas_conmutativas_equivalentes(f1_norm, f2_norm):
+    """
+    Verifica si dos fórmulas normalizadas son equivalentes bajo
+    conmutatividad de suma (+) o multiplicación (*).
+
+    Solo aplica a expresiones aritméticas simples SIN funciones.
+    La resta (-) y la división (/) NO son conmutativas y se excluyen.
+
+    Ejemplos que retornan True:
+        '=C3*D3'   vs '=D3*C3'
+        '=C3*3%'   vs '=3%*C3'
+        '=F5+G5'   vs '=G5+F5'
+        '=A1+B1+C1' vs '=C1+A1+B1'
+
+    Parámetros:
+        f1_norm: Fórmula 1 ya normalizada (mayúsculas, sin prefijos).
+        f2_norm: Fórmula 2 ya normalizada (mayúsculas, sin prefijos).
+
+    Retorna:
+        bool: True si son equivalentes bajo conmutatividad.
+    """
+    # Ambas deben ser fórmulas válidas que empiecen con =
+    if not f1_norm or not f2_norm:
+        return False
+    if not f1_norm.startswith("=") or not f2_norm.startswith("="):
+        return False
+
+    # Extraer el cuerpo de la fórmula (sin el =)
+    cuerpo1 = f1_norm[1:].strip()
+    cuerpo2 = f2_norm[1:].strip()
+
+    # Si contienen funciones (paréntesis), no aplicar conmutatividad simple
+    if "(" in cuerpo1 or "(" in cuerpo2:
+        return False
+
+    # Determinar el operador conmutativo usado
+    # Solo aplica si la fórmula usa EXCLUSIVAMENTE + o EXCLUSIVAMENTE *
+    # (no mezcla de operadores, ni resta ni división)
+    for operador in ("+", "*"):
+        # Verificar que no haya operadores NO conmutativos mezclados
+        otros_ops = ["-", "/"] if operador == "+" else ["-", "/", "+"]
+        if operador == "*":
+            otros_ops = ["-", "/", "+"]
+        elif operador == "+":
+            otros_ops = ["-", "/", "*"]
+
+        tiene_op1 = operador in cuerpo1
+        tiene_op2 = operador in cuerpo2
+
+        if not tiene_op1 or not tiene_op2:
+            continue
+
+        # Verificar que no haya otros operadores mezclados
+        tiene_otros1 = any(op in cuerpo1 for op in otros_ops)
+        tiene_otros2 = any(op in cuerpo2 for op in otros_ops)
+
+        if tiene_otros1 or tiene_otros2:
+            continue
+
+        # Separar por el operador y ordenar los operandos
+        operandos1 = sorted(part.strip() for part in cuerpo1.split(operador))
+        operandos2 = sorted(part.strip() for part in cuerpo2.split(operador))
+
+        if operandos1 == operandos2:
+            return True
+
+    return False
+
+
 def _extraer_funciones(formula):
     """
     Extrae las funciones de Excel usadas en una fórmula.
@@ -243,12 +312,15 @@ def comparar_celda(celda_plantilla, celda_estudiante, ws_plantilla_data=None):
         formula_e_norm = _normalizar_formula(formula_e_raw)
         
         if formula_p_norm != formula_e_norm:
-            errores.append(
-                MENSAJES["formula"].format(
-                    esperado=formula_p_raw,
-                    encontrado=formula_e_raw or "(vacío)"
+            # Antes de marcar error, verificar si son equivalentes
+            # bajo conmutatividad de + o * (el orden no importa)
+            if not _formulas_conmutativas_equivalentes(formula_p_norm, formula_e_norm):
+                errores.append(
+                    MENSAJES["formula"].format(
+                        esperado=formula_p_raw,
+                        encontrado=formula_e_raw or "(vacío)"
+                    )
                 )
-            )
         
         # Comparar funciones utilizadas
         func_p = _extraer_funciones(formula_p_raw)

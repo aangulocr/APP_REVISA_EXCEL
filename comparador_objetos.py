@@ -186,6 +186,12 @@ def _comparar_config_validacion(dv_p, dv_e):
     """Compara la configuración detallada de dos reglas de validación."""
     diffs = []
 
+    # Para validaciones de tipo LISTA: solo verificar que ambas sean lista.
+    # No comparar origen (directo vs referencia externa), valores, ni orden.
+    # El estudiante puede usar su propia hoja como origen de la lista.
+    if dv_p.type == "list" and dv_e.type == "list":
+        return None  # Ambas son lista → se considera correcto
+
     if dv_p.type != dv_e.type:
         diffs.append(f"Tipo: {dv_p.type} vs {dv_e.type}")
     if str(dv_p.formula1) != str(dv_e.formula1):

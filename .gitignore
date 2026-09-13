@@ -15,9 +15,11 @@ env/
 # Archivos de Excel temporales
 ~$*.xlsx
 
-# Carpetas de datos (trabajos y revisados)
+# Carpetas de datos (trabajos, revisados, plantillas y logs)
 TRABAJOS_ESTUDIANTES/
 REVISADOS/
+LOGS/
+PLANTILLAS/
 
 # Archivos de plantilla
 PLANTILLA.xlsx
