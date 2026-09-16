@@ -219,28 +219,39 @@ def auditar_libro(ruta_plantilla, ruta_estudiante, ruta_salida):
         return resultado
 
     # ----------------------------------------------------------------
-    # COMPARACIÓN POR HOJAS
+    # COMPARACIÓN POR HOJAS (CON EMPAREJAMIENTO INTELIGENTE)
     # ----------------------------------------------------------------
-    import unicodedata
-
-    def _es_rubrica(nombre):
-        norm = "".join(
-            c for c in unicodedata.normalize('NFD', nombre)
-            if unicodedata.category(c) != 'Mn'
-        ).lower().strip()
-        return norm in ("rubrica", "rubricas")
+    from matcher_hojas import emparejar_hojas, es_rubrica
 
     hojas_plantilla = [
         name for name in wb_plantilla.sheetnames
-        if wb_plantilla[name].sheet_state == "visible" and not _es_rubrica(name)
+        if wb_plantilla[name].sheet_state == "visible" and not es_rubrica(name)
     ]
 
+    mapa_hojas = emparejar_hojas(
+        hojas_plantilla,
+        wb_estudiante.sheetnames,
+        wb_plantilla,
+        wb_estudiante
+    )
+
     for nombre_hoja in hojas_plantilla:
-        if nombre_hoja in wb_estudiante.sheetnames:
+        info_match = mapa_hojas.get(nombre_hoja, {})
+        nombre_e = info_match.get("hoja_estudiante")
+        metodo = info_match.get("metodo", "desconocido")
+
+        if nombre_e and nombre_e in wb_estudiante.sheetnames:
+            if nombre_e != nombre_hoja:
+                logger.info(
+                    f"  🔗 Hoja '{nombre_hoja}' emparejada con '{nombre_e}' "
+                    f"en el estudiante [{metodo}]"
+                )
+
             ws_p = wb_plantilla[nombre_hoja]
-            ws_e = wb_estudiante[nombre_hoja]
+            ws_e = wb_estudiante[nombre_e]
 
             res_hoja = auditar_hoja(ws_p, ws_e, nombre_hoja)
+            res_hoja["hoja_estudiante"] = nombre_e
 
             resultado["total_aciertos"] += res_hoja["aciertos"]
             resultado["total_errores"] += res_hoja["errores"]
@@ -261,6 +272,7 @@ def auditar_libro(ruta_plantilla, ruta_estudiante, ruta_salida):
             resultado["total_errores"] += 1
             resultado["detalle_hojas"].append({
                 "hoja": nombre_hoja,
+                "hoja_estudiante": None,
                 "aciertos": 0,
                 "errores": 1,
                 "detalles_objetos": [msg]
@@ -270,7 +282,9 @@ def auditar_libro(ruta_plantilla, ruta_estudiante, ruta_salida):
     # INSPECCIÓN PROFUNDA CON COM (Tablas Dinámicas + Gráficos)
     # ----------------------------------------------------------------
     try:
-        err_com, det_com = inspeccion_profunda_com(ruta_plantilla, ruta_estudiante)
+        err_com, det_com = inspeccion_profunda_com(
+            ruta_plantilla, ruta_estudiante, mapa_hojas=mapa_hojas
+        )
         resultado["total_errores"] += err_com
         resultado["detalles_com"] = det_com
 

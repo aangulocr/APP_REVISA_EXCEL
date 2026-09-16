@@ -17,6 +17,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Intentar importar win32com; si no está disponible, deshabilitar este módulo
+from matcher_hojas import emparejar_hojas, es_rubrica
+
 try:
     import win32com.client
     import pythoncom
@@ -63,7 +65,7 @@ def cerrar_excel_com(excel):
             pass
 
 
-def comparar_tablas_dinamicas_com(ruta_plantilla, ruta_estudiante, excel=None):
+def comparar_tablas_dinamicas_com(ruta_plantilla, ruta_estudiante, excel=None, mapa_hojas=None):
     """
     Compara las Tablas Dinámicas (Pivot Tables) entre la plantilla y el
     archivo del estudiante usando COM.
@@ -72,6 +74,7 @@ def comparar_tablas_dinamicas_com(ruta_plantilla, ruta_estudiante, excel=None):
         ruta_plantilla: Ruta absoluta al archivo PLANTILLA.xlsx.
         ruta_estudiante: Ruta absoluta al archivo del estudiante.
         excel: Instancia de Excel COM (opcional, se crea si no se provee).
+        mapa_hojas: Diccionario de emparejamiento inteligente de hojas (opcional).
 
     Retorna:
         tuple: (errores_count: int, detalles: list[str])
@@ -95,14 +98,27 @@ def comparar_tablas_dinamicas_com(ruta_plantilla, ruta_estudiante, excel=None):
         wb_p = excel.Workbooks.Open(os.path.abspath(ruta_plantilla), ReadOnly=True)
         wb_e = excel.Workbooks.Open(os.path.abspath(ruta_estudiante), ReadOnly=True)
 
+        if mapa_hojas is None:
+            hojas_p = [wb_p.Worksheets(k).Name for k in range(1, wb_p.Worksheets.Count + 1)]
+            hojas_e = [wb_e.Worksheets(k).Name for k in range(1, wb_e.Worksheets.Count + 1)]
+            mapa_hojas = emparejar_hojas(hojas_p, hojas_e)
+
         # Iterar por hojas de la plantilla
         for i in range(1, wb_p.Worksheets.Count + 1):
             ws_p = wb_p.Worksheets(i)
             nombre_hoja = ws_p.Name
 
-            # Buscar hoja homónima en el estudiante
+            if es_rubrica(nombre_hoja):
+                continue
+
+            info_m = mapa_hojas.get(nombre_hoja, {})
+            nombre_e = info_m.get("hoja_estudiante")
+            if not nombre_e:
+                continue
+
+            # Buscar hoja emparejada en el estudiante
             try:
-                ws_e = wb_e.Worksheets(nombre_hoja)
+                ws_e = wb_e.Worksheets(nombre_e)
             except Exception:
                 continue  # La hoja faltante ya se detecta en el flujo principal
 
@@ -206,7 +222,7 @@ def comparar_tablas_dinamicas_com(ruta_plantilla, ruta_estudiante, excel=None):
     return errores, detalles
 
 
-def comparar_graficos_com(ruta_plantilla, ruta_estudiante, excel=None):
+def comparar_graficos_com(ruta_plantilla, ruta_estudiante, excel=None, mapa_hojas=None):
     """
     Compara los gráficos entre plantilla y estudiante usando COM.
     Proporciona detalle más profundo que openpyxl.
@@ -232,12 +248,25 @@ def comparar_graficos_com(ruta_plantilla, ruta_estudiante, excel=None):
         wb_p = excel.Workbooks.Open(os.path.abspath(ruta_plantilla), ReadOnly=True)
         wb_e = excel.Workbooks.Open(os.path.abspath(ruta_estudiante), ReadOnly=True)
 
+        if mapa_hojas is None:
+            hojas_p = [wb_p.Worksheets(k).Name for k in range(1, wb_p.Worksheets.Count + 1)]
+            hojas_e = [wb_e.Worksheets(k).Name for k in range(1, wb_e.Worksheets.Count + 1)]
+            mapa_hojas = emparejar_hojas(hojas_p, hojas_e)
+
         for i in range(1, wb_p.Worksheets.Count + 1):
             ws_p = wb_p.Worksheets(i)
             nombre_hoja = ws_p.Name
 
+            if es_rubrica(nombre_hoja):
+                continue
+
+            info_m = mapa_hojas.get(nombre_hoja, {})
+            nombre_e = info_m.get("hoja_estudiante")
+            if not nombre_e:
+                continue
+
             try:
-                ws_e = wb_e.Worksheets(nombre_hoja)
+                ws_e = wb_e.Worksheets(nombre_e)
             except Exception:
                 continue
 
@@ -324,7 +353,7 @@ def comparar_graficos_com(ruta_plantilla, ruta_estudiante, excel=None):
     return errores, detalles
 
 
-def inspeccion_profunda_com(ruta_plantilla, ruta_estudiante):
+def inspeccion_profunda_com(ruta_plantilla, ruta_estudiante, mapa_hojas=None):
     """
     Ejecuta la inspección profunda completa vía COM.
     Agrupa Tablas Dinámicas y Gráficos en una sola sesión de Excel.
@@ -349,14 +378,14 @@ def inspeccion_profunda_com(ruta_plantilla, ruta_estudiante):
 
         # Tablas Dinámicas
         err_td, det_td = comparar_tablas_dinamicas_com(
-            ruta_plantilla, ruta_estudiante, excel
+            ruta_plantilla, ruta_estudiante, excel, mapa_hojas=mapa_hojas
         )
         total_errores += err_td
         todos_detalles.extend(det_td)
 
         # Gráficos vía COM
         err_gc, det_gc = comparar_graficos_com(
-            ruta_plantilla, ruta_estudiante, excel
+            ruta_plantilla, ruta_estudiante, excel, mapa_hojas=mapa_hojas
         )
         total_errores += err_gc
         todos_detalles.extend(det_gc)

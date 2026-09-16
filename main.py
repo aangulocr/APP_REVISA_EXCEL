@@ -138,14 +138,7 @@ def generar_log_xlsx(resultados, ruta_xlsx, ruta_plantilla, ruta_trabajos):
     
     # Obtener los nombres de las hojas de la plantilla para crear las columnas
     try:
-        import unicodedata
-        
-        def es_rubrica(nombre):
-            norm = "".join(
-                c for c in unicodedata.normalize('NFD', nombre)
-                if unicodedata.category(c) != 'Mn'
-            ).lower().strip()
-            return norm in ("rubrica", "rubricas")
+        from matcher_hojas import es_rubrica
 
         wb_p = openpyxl.load_workbook(ruta_plantilla, read_only=True)
         hojas_plantilla = [
